@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+.env*.local
+npm-debug.log*
+*.tsbuildinfo
+
+# uploaded payment screenshots (user content, not source) — only ever populated when
+# CLOUDINARY_* isn't configured and uploads fall back to local disk
+/public/uploads/*
+!/public/uploads/.gitkeep
