@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { BadgeCheck, TrendingUp, Users } from "lucide-react";
 
 export default function AuthLayout({
@@ -16,9 +15,8 @@ export default function AuthLayout({
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10" />
         <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-white/10" />
 
-        <div className="relative flex items-center gap-2.5">
-          <Image src="/images/logo.png" alt="Rento" width={36} height={36} className="rounded-lg" />
-          <span className="text-xl font-800 tracking-tight">Rento Partner</span>
+        <div className="relative">
+          <span className="text-xl font-800 tracking-tight text-white">Rento</span>
         </div>
 
         <div className="relative">
@@ -57,9 +55,8 @@ export default function AuthLayout({
 
       <div className="flex flex-1 items-center justify-center overflow-y-auto bg-background px-4 py-10 sm:px-8">
         <div className="w-full max-w-md">
-          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <Image src="/images/logo.png" alt="Rento" width={32} height={32} className="rounded-lg" />
-            <span className="text-lg font-800 tracking-tight text-foreground">Rento Partner</span>
+          <div className="mb-8 lg:hidden">
+            <span className="text-xl font-800 tracking-tight text-primary">Rento</span>
           </div>
 
           <h2 className="text-2xl font-800 tracking-tight text-foreground">{title}</h2>

@@ -11,7 +11,7 @@
 const isDev = process.env.NODE_ENV !== "production";
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.gstatic.com https://www.google.com https://apis.google.com`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.gstatic.com https://www.google.com https://www.recaptcha.net https://apis.google.com`,
   "style-src 'self' 'unsafe-inline'",
   // Partner vehicle photos uploaded as files resolve to an absolute cross-origin URL at
   // PARTNER_PORTAL_ORIGIN (http://localhost:3001 by default in dev — plain http, not
@@ -22,7 +22,7 @@ const csp = [
   // Firebase Auth talks to several googleapis.com/firebaseio.com subdomains — allowing
   // https: broadly here avoids brittle, hard-to-diagnose CSP breakage of login.
   "connect-src 'self' https:" + (isDev ? " ws:" : ""),
-  "frame-src https://www.google.com",
+  "frame-src https://www.google.com https://www.recaptcha.net",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

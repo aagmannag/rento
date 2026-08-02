@@ -11,7 +11,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Rento Admin — Shop Owner Review",
+  title: "Rento — Shop Owner Review",
   description: "Review and approve shop owner registrations, and moderate listings across Rento.",
 };
 

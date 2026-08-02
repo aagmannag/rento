@@ -11,9 +11,9 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Rento Partner — Manage Your Rental Fleet",
+  title: "Rento — Manage Your Rental Fleet",
   description:
-    "List bikes, scooties and cars, manage bookings, and track earnings on the Rento Partner portal for shop owners.",
+    "List bikes, scooties and cars, manage bookings, and track earnings on the Rento portal for shop owners.",
 };
 
 export const viewport: Viewport = {

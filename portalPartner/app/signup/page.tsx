@@ -10,6 +10,16 @@ import { useToast } from "@/components/Toast";
 import { CITIES } from "@/lib/types";
 import { isValidEmail, isValidPhone, isValidPincode, passwordIssue } from "@/lib/validation";
 
+async function readJsonResponse(res: Response): Promise<{ error?: string; owner?: unknown }> {
+  const text = await res.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as { error?: string; owner?: unknown };
+  } catch {
+    return { error: text };
+  }
+}
+
 interface FormState {
   ownerName: string;
   shopName: string;
@@ -94,11 +104,11 @@ export default function SignupPage() {
           pincode: form.pincode || undefined,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Something went wrong");
 
       setOwner(data.owner);
-      showToast("Account created — welcome to Rento Partner!", "success");
+      showToast("Account created — welcome to Rento!", "success");
       router.push("/");
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong");
@@ -109,7 +119,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      title="Create your partner account"
+      title="Create your account"
       subtitle="List your vehicles and start earning with Rento."
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -267,11 +277,11 @@ export default function SignupPage() {
         )}
 
         <button type="submit" disabled={submitting} className="btn-primary w-full py-3 text-sm">
-          {submitting ? "Creating account…" : "Create partner account"}
+          {submitting ? "Creating account…" : "Create account"}
         </button>
 
         <p className="text-center text-[11px] text-muted-foreground">
-          By continuing, you agree to Rento Partner&apos;s Terms &amp; Privacy Policy.
+          By continuing, you agree to Rento&apos;s Terms &amp; Privacy Policy.
         </p>
       </form>
 

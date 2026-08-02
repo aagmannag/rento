@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Store, Car, Banknote, Settings, LogOut, X } from "lucide-react";
@@ -33,11 +32,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex items-center justify-between px-5 py-5">
         <Link href="/" className="flex items-center gap-2.5" onClick={onNavigate}>
-          <Image src="/images/logo.png" alt="Rento" width={32} height={32} className="rounded-lg" />
-          <div className="leading-tight">
-            <p className="text-base font-800 tracking-tight text-sidebar-foreground">Rento</p>
-            <p className="text-[10px] font-700 uppercase tracking-wider text-primary">Admin</p>
-          </div>
+          <span className="text-xl font-800 tracking-tight text-primary">Rento</span>
         </Link>
         <button
           aria-label="Close menu"

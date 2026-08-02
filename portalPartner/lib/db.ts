@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool } from "@/node_modules/@types/pg";
 import type {
   Booking,
   BookingStatus,

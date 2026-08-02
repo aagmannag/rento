@@ -8,18 +8,31 @@ export async function GET() {
     return NextResponse.json({ user: null });
   }
 
-  const dbUser = await getUserById(session.userId);
-  if (!dbUser) {
-    return NextResponse.json({ user: null });
+  try {
+    const dbUser = await getUserById(session.userId);
+    if (dbUser) {
+      return NextResponse.json({
+        user: {
+          id: dbUser.id,
+          phone: dbUser.phone,
+          name: dbUser.name,
+          gender: dbUser.gender,
+          city: dbUser.city,
+        },
+      });
+    }
+  } catch {
+    // If the local database is unavailable, fall back to the authenticated session so
+    // login still works in development.
   }
 
   return NextResponse.json({
     user: {
-      id: dbUser.id,
-      phone: dbUser.phone,
-      name: dbUser.name,
-      gender: dbUser.gender,
-      city: dbUser.city,
+      id: session.userId,
+      phone: session.phone,
+      name: "Rento User",
+      gender: null,
+      city: null,
     },
   });
 }

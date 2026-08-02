@@ -7,6 +7,16 @@ import AuthLayout from "@/components/AuthLayout";
 import { useAdmin } from "@/app/providers";
 import { passwordIssue, isValidEmail } from "@/lib/validation";
 
+async function readJsonResponse(res: Response): Promise<{ error?: string; admin?: unknown; needsSetup?: boolean }> {
+  const text = await res.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as { error?: string; admin?: unknown; needsSetup?: boolean };
+  } catch {
+    return { error: text };
+  }
+}
+
 export default function SetupPage() {
   const router = useRouter();
   const { setAdmin } = useAdmin();
@@ -23,7 +33,7 @@ export default function SetupPage() {
 
   useEffect(() => {
     fetch("/api/setup")
-      .then((res) => res.json())
+      .then((res) => readJsonResponse(res))
       .then((data: { needsSetup: boolean }) => {
         if (!data.needsSetup) {
           router.replace("/login");
@@ -57,7 +67,7 @@ export default function SetupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Something went wrong");
 
       setAdmin(data.admin);

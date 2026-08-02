@@ -65,7 +65,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           >
             <Menu size={20} />
           </button>
-          <span className="text-base font-800 text-foreground">Rento Admin</span>
+          <span className="text-xl font-800 tracking-tight text-primary">Rento</span>
         </div>
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

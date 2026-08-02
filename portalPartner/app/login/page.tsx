@@ -7,6 +7,16 @@ import { Eye, EyeOff } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { useOwner } from "@/app/providers";
 
+async function readJsonResponse(res: Response): Promise<{ error?: string; owner?: unknown }> {
+  const text = await res.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as { error?: string; owner?: unknown };
+  } catch {
+    return { error: text };
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { setOwner } = useOwner();
@@ -33,7 +43,7 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Login failed");
 
       setOwner(data.owner);
@@ -98,7 +108,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        New to Rento Partner?{" "}
+        New to Rento?{" "}
         <Link href="/signup" className="font-700 text-primary">Create an account</Link>
       </p>
     </AuthLayout>
