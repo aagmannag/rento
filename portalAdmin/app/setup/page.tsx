@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { useAdmin } from "@/app/providers";
+import type { AdminUser } from "@/lib/types";
 import { passwordIssue, isValidEmail } from "@/lib/validation";
 
 async function readJsonResponse(res: Response): Promise<{ error?: string; admin?: unknown; needsSetup?: boolean }> {
@@ -34,7 +35,7 @@ export default function SetupPage() {
   useEffect(() => {
     fetch("/api/setup")
       .then((res) => readJsonResponse(res))
-      .then((data: { needsSetup: boolean }) => {
+      .then((data) => {
         if (!data.needsSetup) {
           router.replace("/login");
         } else {
@@ -70,7 +71,7 @@ export default function SetupPage() {
       const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Something went wrong");
 
-      setAdmin(data.admin);
+      setAdmin(data.admin as AdminUser | null);
       router.push("/");
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong");

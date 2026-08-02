@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { useOwner } from "@/app/providers";
+import type { ShopOwner } from "@/lib/types";
 
 async function readJsonResponse(res: Response): Promise<{ error?: string; owner?: unknown }> {
   const text = await res.text();
@@ -46,7 +47,7 @@ export default function LoginPage() {
       const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Login failed");
 
-      setOwner(data.owner);
+      setOwner(data.owner as ShopOwner | null);
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

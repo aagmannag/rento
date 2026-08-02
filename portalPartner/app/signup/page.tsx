@@ -7,6 +7,7 @@ import { Eye, EyeOff } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { useOwner } from "@/app/providers";
 import { useToast } from "@/components/Toast";
+import type { ShopOwner } from "@/lib/types";
 import { CITIES } from "@/lib/types";
 import { isValidEmail, isValidPhone, isValidPincode, passwordIssue } from "@/lib/validation";
 
@@ -107,7 +108,7 @@ export default function SignupPage() {
       const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Something went wrong");
 
-      setOwner(data.owner);
+      setOwner(data.owner as ShopOwner | null);
       showToast("Account created — welcome to Rento!", "success");
       router.push("/");
     } catch (err) {

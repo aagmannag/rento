@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { useAdmin } from "@/app/providers";
+import type { AdminUser } from "@/lib/types";
 
 async function readJsonResponse(res: Response): Promise<{ error?: string; admin?: unknown; needsSetup?: boolean }> {
   const text = await res.text();
@@ -30,7 +31,7 @@ export default function LoginPage() {
   useEffect(() => {
     fetch("/api/setup")
       .then((res) => readJsonResponse(res))
-      .then((data: { needsSetup: boolean }) => {
+      .then((data) => {
         if (data.needsSetup) {
           router.replace("/setup");
         } else {
@@ -59,7 +60,7 @@ export default function LoginPage() {
       const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Login failed");
 
-      setAdmin(data.admin);
+      setAdmin(data.admin as AdminUser | null);
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
