@@ -19,7 +19,7 @@ export default function Nav() {
             <span className="text-lg font-800 tracking-tight text-primary sm:text-xl">Rento</span>
           </Link>
 
-          <div className="hidden items-center gap-6 md:flex">
+          <div className="hidden items-center gap-6 lg:flex">
             <Link
               href="/#cities"
               className="flex items-center gap-1.5 text-sm font-600 text-foreground transition-colors duration-150 hover:text-primary"
@@ -56,14 +56,14 @@ export default function Nav() {
           <button
             aria-label="Toggle menu"
             onClick={() => setMenuOpen((o) => !o)}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground transition hover:bg-muted md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground transition hover:bg-muted lg:hidden"
           >
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
 
         {menuOpen && (
-          <div className="flex flex-col gap-1 border-t border-border py-3 md:hidden">
+          <div className="flex flex-col gap-1 border-t border-border py-3 lg:hidden">
             <Link
               href="/#cities"
               onClick={() => setMenuOpen(false)}

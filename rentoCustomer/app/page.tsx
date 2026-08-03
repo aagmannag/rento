@@ -134,14 +134,14 @@ export default function HomePage() {
       <Nav />
 
       {/* Hero */}
-      <section className="hero-gradient relative py-14 sm:py-20 lg:py-28">
+      <section className="hero-gradient relative py-10 sm:py-16 lg:py-24">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
         </div>
 
         <div className="relative mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-600 text-white backdrop-blur">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-600 text-white backdrop-blur sm:text-xs">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
@@ -149,18 +149,18 @@ export default function HomePage() {
             Live in 2 cities · expanding to 6
           </div>
 
-          <h1 className="text-hero-xl mt-5 max-w-2xl text-white sm:max-w-3xl">
+          <h1 className="text-hero-xl mt-4 max-w-xl text-white sm:mt-5 sm:max-w-3xl">
             Ride on your
             <br />
             <span className="italic">own terms</span>
           </h1>
 
-          <p className="text-hero-sub mt-4 max-w-md text-white/90 sm:max-w-lg">
+          <p className="text-hero-sub mt-3 max-w-sm text-white/90 sm:mt-4 sm:max-w-lg">
             Rent bikes, scooties &amp; cars — live now in Lucknow &amp; Indore, with Goa,
             Haridwar, Rishikesh and Bangalore launching soon. No driver. No hassle.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <CityDropdown value={selectedCity} onChange={setSelectedCity} />
             <button
               onClick={handleFindVehicles}
@@ -171,7 +171,7 @@ export default function HomePage() {
             </button>
           </div>
 
-          <div className="mt-12 flex flex-wrap gap-x-10 gap-y-4 text-white">
+          <div className="mt-9 grid grid-cols-3 gap-3 text-white sm:mt-12 sm:flex sm:flex-wrap sm:gap-x-10 sm:gap-y-4">
             <Stat value={`${getTotalVehicleCount()}+`} label="Vehicles" />
             <Stat value={String(CITIES.length)} label="Cities" />
             <Stat value="4.7★" label="Avg Rating" />
@@ -196,7 +196,7 @@ export default function HomePage() {
                 <button
                   key={city}
                   onClick={() => handleCityCardClick(city)}
-                  className="card-hover group relative h-44 overflow-hidden rounded-2xl text-left sm:h-48 lg:h-56"
+                  className="card-hover group relative h-40 overflow-hidden rounded-2xl text-left sm:h-48 lg:h-56"
                 >
                   <Image
                     src={CITY_META[city].image}
@@ -274,7 +274,7 @@ export default function HomePage() {
                 <button
                   key={cat.key}
                   onClick={handleCategoryPick}
-                  className={`card-hover flex min-h-52 flex-col items-start rounded-2xl border-2 ${style.border} ${style.bg} p-5 text-left sm:p-6`}
+                  className={`card-hover flex min-h-48 flex-col items-start rounded-2xl border-2 ${style.border} ${style.bg} p-5 text-left sm:min-h-52 sm:p-6`}
                 >
                   <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${style.iconBg} text-foreground sm:h-14 sm:w-14`}>
                     <style.icon size={22} className="sm:hidden" />
