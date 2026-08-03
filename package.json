@@ -1,0 +1,18 @@
+{
+  "name": "rento-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "portalAdmin",
+    "portalPartner",
+    "rentoCustomer"
+  ],
+  "scripts": {
+    "build:admin": "npm --prefix portalAdmin run build",
+    "build:partner": "npm --prefix portalPartner run build",
+    "build:customer": "npm --prefix rentoCustomer run build",
+    "dev:admin": "npm --prefix portalAdmin run dev",
+    "dev:partner": "npm --prefix portalPartner run dev",
+    "dev:customer": "npm --prefix rentoCustomer run dev"
+  }
+}
