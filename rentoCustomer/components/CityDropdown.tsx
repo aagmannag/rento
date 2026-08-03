@@ -81,7 +81,7 @@ export default function CityDropdown({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`flex w-full items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 text-left shadow-lg ring-1 ring-black/5 transition ${
+        className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 text-left shadow-lg ring-1 ring-black/5 transition ${
           open ? "ring-2 ring-primary/50" : ""
         }`}
       >
@@ -110,7 +110,7 @@ export default function CityDropdown({
           open ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-95 opacity-0"
         }`}
       >
-        <div className="max-h-96 overflow-y-auto py-1.5">
+        <div className="max-h-[70vh] overflow-y-auto py-1.5 sm:max-h-96">
           <p className="px-3.5 pb-1 pt-2 text-[10px] font-700 uppercase tracking-wider text-muted-foreground">
             Live now
           </p>

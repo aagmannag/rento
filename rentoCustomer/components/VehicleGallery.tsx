@@ -67,7 +67,7 @@ export default function VehicleGallery({
               type="button"
               onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
               aria-label="Previous photo"
-              className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60"
+              className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60"
             >
               <ChevronLeft size={20} />
             </button>
@@ -75,7 +75,7 @@ export default function VehicleGallery({
               type="button"
               onClick={() => setIndex((i) => (i + 1) % photos.length)}
               aria-label="Next photo"
-              className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60"
+              className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60"
             >
               <ChevronRight size={20} />
             </button>
@@ -94,7 +94,7 @@ export default function VehicleGallery({
               type="button"
               onClick={() => setIndex(i)}
               aria-label={`View photo ${i + 1}`}
-              className={`relative flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 bg-secondary text-xl transition ${
+              className={`relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 bg-secondary text-xl transition ${
                 i === active ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"
               }`}
             >

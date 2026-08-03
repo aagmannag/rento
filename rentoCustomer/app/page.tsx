@@ -134,7 +134,7 @@ export default function HomePage() {
       <Nav />
 
       {/* Hero */}
-      <section className="hero-gradient relative py-16 sm:py-24 lg:py-28">
+      <section className="hero-gradient relative py-14 sm:py-20 lg:py-28">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
@@ -149,23 +149,23 @@ export default function HomePage() {
             Live in 2 cities · expanding to 6
           </div>
 
-          <h1 className="text-hero-xl mt-5 max-w-2xl text-white">
+          <h1 className="text-hero-xl mt-5 max-w-2xl text-white sm:max-w-3xl">
             Ride on your
             <br />
             <span className="italic">own terms</span>
           </h1>
 
-          <p className="text-hero-sub mt-4 max-w-lg text-white/90">
+          <p className="text-hero-sub mt-4 max-w-md text-white/90 sm:max-w-lg">
             Rent bikes, scooties &amp; cars — live now in Lucknow &amp; Indore, with Goa,
             Haridwar, Rishikesh and Bangalore launching soon. No driver. No hassle.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <CityDropdown value={selectedCity} onChange={setSelectedCity} />
             <button
               onClick={handleFindVehicles}
               disabled={!selectedCity}
-              className="rounded-xl bg-white px-6 py-3.5 text-sm font-700 text-primary shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-white px-6 py-3.5 text-sm font-700 text-primary shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               Find Vehicles
             </button>
@@ -189,14 +189,14 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6 lg:gap-5">
             {CITIES.map((city) => {
               const live = isCityLive(city);
               return (
                 <button
                   key={city}
                   onClick={() => handleCityCardClick(city)}
-                  className="card-hover group relative h-52 overflow-hidden rounded-2xl text-left lg:h-56"
+                  className="card-hover group relative h-44 overflow-hidden rounded-2xl text-left sm:h-48 lg:h-56"
                 >
                   <Image
                     src={CITY_META[city].image}
@@ -267,19 +267,20 @@ export default function HomePage() {
             <h2 className="text-3xl font-800 text-foreground">What do you want to ride?</h2>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {CATEGORIES.map((cat) => {
               const style = CATEGORY_STYLE[cat.key];
               return (
                 <button
                   key={cat.key}
                   onClick={handleCategoryPick}
-                  className={`card-hover flex flex-col items-start rounded-2xl border-2 ${style.border} ${style.bg} p-6 text-left`}
+                  className={`card-hover flex min-h-52 flex-col items-start rounded-2xl border-2 ${style.border} ${style.bg} p-5 text-left sm:p-6`}
                 >
-                  <span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${style.iconBg} text-foreground`}>
-                    <style.icon size={26} />
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${style.iconBg} text-foreground sm:h-14 sm:w-14`}>
+                    <style.icon size={22} className="sm:hidden" />
+                    <style.icon size={26} className="hidden sm:block" />
                   </span>
-                  <p className="mt-4 text-lg font-700 text-foreground">{cat.label}s</p>
+                  <p className="mt-4 text-base font-700 text-foreground sm:text-lg">{cat.label}s</p>
                   <p className="mt-1 text-sm text-muted-foreground">{style.blurb}</p>
                   <p className="mt-4 text-sm font-700 text-foreground">
                     Starting ₹{FALLBACK_STARTING_PRICE[cat.key]}/day

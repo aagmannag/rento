@@ -61,6 +61,11 @@ function isLocalDevHost() {
   return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
 }
 
+function getRecaptchaSize() {
+  if (typeof window === "undefined") return "normal";
+  return window.innerWidth < 380 ? "compact" : "normal";
+}
+
 export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
   const { loginWithServerUser } = useApp();
 
@@ -82,7 +87,7 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
     if (recaptchaRef.current || !recaptchaContainerRef.current) return;
 
     const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
-      size: "normal",
+      size: getRecaptchaSize(),
       callback: () => setPhoneError(""),
       "expired-callback": () => {
         setPhoneError("reCAPTCHA expired. Please verify again.");
@@ -362,7 +367,11 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div>
       {content}
-      <div className="mt-4 rounded-xl border border-border bg-card p-3" ref={recaptchaContainerRef} id="recaptcha-container" />
+      <div
+        id="recaptcha-container"
+        ref={recaptchaContainerRef}
+        className="mt-4 flex justify-center rounded-xl border border-border bg-card p-3"
+      />
     </div>
   );
 }

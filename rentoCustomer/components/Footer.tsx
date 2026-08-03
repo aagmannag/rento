@@ -19,8 +19,8 @@ export default function Footer() {
     <footer className="bg-foreground py-12 text-white">
       <div className="mx-auto grid max-w-screen-xl grid-cols-1 gap-8 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
         <div>
-          <p className="text-xl font-800">Rento</p>
-          <p className="mt-2 text-sm text-white/60">
+          <p className="text-lg font-800 sm:text-xl">Rento</p>
+          <p className="mt-2 text-sm leading-6 text-white/60">
             India&apos;s most convenient vehicle rental platform — bikes, scooties, and cars,
             expanding across {CITIES.length} cities.
           </p>
@@ -33,7 +33,7 @@ export default function Footer() {
               <li key={city}>
                 <button
                   onClick={() => handleCityClick(city)}
-                  className="flex items-center gap-2 hover:text-white"
+                  className="flex min-h-11 items-center gap-2 py-1 text-left hover:text-white"
                 >
                   {city}
                   {!isCityLive(city) && (
@@ -50,20 +50,20 @@ export default function Footer() {
         <div>
           <p className="text-sm font-700 uppercase tracking-wider text-white/80">Company</p>
           <ul className="mt-3 space-y-2 text-sm text-white/60">
-            <li><Link href="/about" className="hover:text-white">About Us</Link></li>
-            <li><Link href="/careers" className="hover:text-white">Careers</Link></li>
-            <li><Link href="/blog" className="hover:text-white">Blog</Link></li>
-            <li><Link href="/press" className="hover:text-white">Press</Link></li>
+            <li><Link href="/about" className="inline-flex min-h-11 items-center hover:text-white">About Us</Link></li>
+            <li><Link href="/careers" className="inline-flex min-h-11 items-center hover:text-white">Careers</Link></li>
+            <li><Link href="/blog" className="inline-flex min-h-11 items-center hover:text-white">Blog</Link></li>
+            <li><Link href="/press" className="inline-flex min-h-11 items-center hover:text-white">Press</Link></li>
           </ul>
         </div>
 
         <div>
           <p className="text-sm font-700 uppercase tracking-wider text-white/80">Support</p>
           <ul className="mt-3 space-y-2 text-sm text-white/60">
-            <li><Link href="/help" className="hover:text-white">Help Center</Link></li>
-            <li><Link href="/cancellation-policy" className="hover:text-white">Cancellation Policy</Link></li>
-            <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
-            <li><Link href="/terms" className="hover:text-white">Terms &amp; Privacy</Link></li>
+            <li><Link href="/help" className="inline-flex min-h-11 items-center hover:text-white">Help Center</Link></li>
+            <li><Link href="/cancellation-policy" className="inline-flex min-h-11 items-center hover:text-white">Cancellation Policy</Link></li>
+            <li><Link href="/contact" className="inline-flex min-h-11 items-center hover:text-white">Contact Us</Link></li>
+            <li><Link href="/terms" className="inline-flex min-h-11 items-center hover:text-white">Terms &amp; Privacy</Link></li>
           </ul>
         </div>
       </div>

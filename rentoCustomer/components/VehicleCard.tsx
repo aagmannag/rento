@@ -24,7 +24,7 @@ export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
         soldOut ? "opacity-75" : ""
       }`}
     >
-      <div className="relative flex h-48 items-center justify-center bg-secondary text-7xl">
+      <div className="relative flex h-44 items-center justify-center bg-secondary text-6xl sm:h-48 sm:text-7xl">
         {vehicle.photo && !photoBroken ? (
           <Image
             src={vehicle.photo}
@@ -84,7 +84,7 @@ export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
         </div>
 
         <div className="mt-auto flex items-end justify-between border-t border-border pt-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-lg font-800 text-foreground">
               ₹{vehicle.pricePerDay}
               <span className="text-xs font-600 text-muted-foreground">/day</span>
@@ -98,12 +98,12 @@ export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
           {!soldOut ? (
             <Link
               href={`/vehicles/${vehicle.id}`}
-              className="btn-primary flex items-center gap-1 px-4 py-2 text-xs"
+              className="btn-primary inline-flex min-h-11 shrink-0 items-center gap-1 px-4 text-xs"
             >
               Book <ArrowRight size={13} />
             </Link>
           ) : (
-            <span className="flex cursor-not-allowed items-center gap-1 rounded-lg bg-muted px-4 py-2 text-xs font-600 text-muted-foreground">
+            <span className="inline-flex min-h-11 cursor-not-allowed items-center gap-1 rounded-lg bg-muted px-4 text-xs font-600 text-muted-foreground">
               Book <ArrowRight size={13} />
             </span>
           )}
