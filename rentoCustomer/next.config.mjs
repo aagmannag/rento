@@ -40,6 +40,9 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: ["firebase-admin", "jwks-rsa", "jose"],
+  },
   // Disabled: Firebase's RecaptchaVerifier widget (used for phone-auth login) manages
   // its own DOM outside React's control and breaks under Strict Mode's intentional
   // double-mount-in-dev behavior — surfaces as "Cannot read properties of null" errors

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
 import { findOrCreateUserByPhone } from "@/lib/db";
 import { signSession, setSessionCookie } from "@/lib/session";
 import { getClientIp, rateLimit } from "@/lib/rateLimit";
@@ -37,6 +36,7 @@ export async function POST(request: NextRequest) {
 
     if (hasFirebaseAdminCredentials() && idToken && typeof idToken === "string") {
       try {
+        const { adminAuth } = await import("@/lib/firebase-admin");
         const decoded = await adminAuth().verifyIdToken(idToken);
         phone = decoded.phone_number ?? null;
       } catch (err) {
