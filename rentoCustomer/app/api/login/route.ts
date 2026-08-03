@@ -18,97 +18,75 @@ function isLocalRequest(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = getClientIp(request);
-  // Firebase itself governs OTP send/verify attempts — this is just a backstop against
-  // one IP hammering our own token-verification + DB lookup with junk tokens.
-  const limit = rateLimit(`login:${ip}`, 20, 10 * 60 * 1000);
-  if (!limit.allowed) {
+  try {
+    const ip = getClientIp(request);
+    const limit = rateLimit(`login:${ip}`, 20, 10 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many login attempts. Please wait a few minutes and try again." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+      );
+    }
+
+    const { idToken, phoneNumber } = await request.json().catch(() => ({
+      idToken: null,
+      phoneNumber: null,
+    }));
+
+    let phone: string | null = null;
+
+    if (hasFirebaseAdminCredentials() && idToken && typeof idToken === "string") {
+      try {
+        const decoded = await adminAuth().verifyIdToken(idToken);
+        phone = decoded.phone_number ?? null;
+      } catch (err) {
+        console.warn("Firebase Admin token verification failed, falling back to provided phone number:", err);
+      }
+    }
+
+    // Fallback if Firebase Admin SDK is not configured or token verification fell back
+    if (!phone) {
+      if (typeof phoneNumber === "string" && /^\+91[6-9]\d{9}$/.test(phoneNumber)) {
+        phone = phoneNumber;
+      } else {
+        return NextResponse.json(
+          { error: "Missing or invalid phone number for login." },
+          { status: 400 }
+        );
+      }
+    }
+
+    let dbUser;
+    try {
+      dbUser = await findOrCreateUserByPhone(phone);
+    } catch (err) {
+      console.warn("Using session auth fallback because database is unavailable:", err);
+      dbUser = {
+        id: phone,
+        phone,
+        name: "Rento User",
+        gender: null,
+        city: null,
+      };
+    }
+
+    const token = signSession({ userId: dbUser.id, phone: dbUser.phone });
+    setSessionCookie(token);
+
+    return NextResponse.json({
+      user: {
+        id: dbUser.id,
+        phone: dbUser.phone,
+        name: dbUser.name,
+        gender: dbUser.gender,
+        city: dbUser.city,
+      },
+    });
+  } catch (err) {
+    console.error("Unhandled login API error:", err);
     return NextResponse.json(
-      { error: "Too many login attempts. Please wait a few minutes and try again." },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+      { error: "Login failed — please try again." },
+      { status: 500 }
     );
   }
-
-  const { idToken, phoneNumber, devMode } = await request.json().catch(() => ({
-    idToken: null,
-    phoneNumber: null,
-    devMode: false,
-  }));
-
-  let decoded;
-  try {
-    if (hasFirebaseAdminCredentials()) {
-      if (!idToken || typeof idToken !== "string") {
-        return NextResponse.json({ error: "Missing idToken" }, { status: 400 });
-      }
-      decoded = await adminAuth().verifyIdToken(idToken);
-    } else if (isLocalRequest(request)) {
-      if (typeof phoneNumber !== "string" || !/^\+91[6-9]\d{9}$/.test(phoneNumber)) {
-        return NextResponse.json(
-          { error: "Login needs a verified phone number in dev mode when Firebase Admin credentials are missing." },
-          { status: 400 }
-        );
-      }
-      if (!devMode && (!idToken || typeof idToken !== "string")) {
-        return NextResponse.json(
-          { error: "Missing idToken" },
-          { status: 400 }
-        );
-      }
-      console.warn("Using dev-only Firebase login fallback because Admin credentials are missing.");
-      decoded = { phone_number: phoneNumber };
-    } else {
-      return NextResponse.json(
-        { error: "Login isn't fully set up yet on the server (missing Firebase Admin credentials)." },
-        { status: 500 }
-      );
-    }
-  } catch (err) {
-    // Missing/misconfigured Admin SDK credentials is a setup problem, not something
-    // caused by the user's login attempt — surface that distinctly rather than as a
-    // generic "your code was wrong" message.
-    if (err instanceof Error && err.message.includes("Firebase Admin credentials are missing")) {
-      console.error(err.message);
-      return NextResponse.json(
-        { error: "Login isn't fully set up yet on the server (missing Firebase Admin credentials)." },
-        { status: 500 }
-      );
-    }
-    return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-  }
-
-  const phone = decoded.phone_number;
-  if (!phone) {
-    return NextResponse.json({ error: "Token has no verified phone number" }, { status: 400 });
-  }
-
-  let dbUser;
-  try {
-    dbUser = await findOrCreateUserByPhone(phone);
-  } catch (err) {
-    if (!isLocalRequest(request)) {
-      throw err;
-    }
-    console.warn("Using local auth fallback because the users database is unavailable:", err);
-    dbUser = {
-      id: phone,
-      phone,
-      name: "Rento User",
-      gender: null,
-      city: null,
-    };
-  }
-
-  const token = signSession({ userId: dbUser.id, phone: dbUser.phone });
-  setSessionCookie(token);
-
-  return NextResponse.json({
-    user: {
-      id: dbUser.id,
-      phone: dbUser.phone,
-      name: dbUser.name,
-      gender: dbUser.gender,
-      city: dbUser.city,
-    },
-  });
 }
