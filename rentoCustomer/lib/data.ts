@@ -24,12 +24,11 @@ export const CATEGORY_EMOJI: Record<Category, string> = {
 export const CITY_META: Record<City, { tagline: string; image: string }> = {
   Lucknow: {
     tagline: "City tours & heritage rides",
-    image: "https://mnmtravels.in/images/blogs/180ca2cdf22de7974b9945075203f47f.PNG",
+    image: "https://res.cloudinary.com/djkss2ach/image/upload/v1785759835/rento/customer/cities/lucknow.png",
   },
   Indore: {
     tagline: "Food trails & weekend getaways",
-    image:
-      "https://media.istockphoto.com/id/539001564/photo/rajwada-palace-indore.jpg?s=612x612&w=0&k=20&c=ihbWY77GKzZXNmYfvz3dUDpZissBxxcrfSDSMSqa548=",
+    image: "https://res.cloudinary.com/djkss2ach/image/upload/v1785759836/rento/customer/cities/indore.jpg",
   },
   Goa: { tagline: "Beach hopping & coastal drives", image: "/images/cities/goa.jpg" },
   Haridwar: { tagline: "Ghat visits & Rishikesh day trips", image: "/images/cities/haridwar.png" },
