@@ -6,6 +6,7 @@ import {
   signInWithPhoneNumber,
   type ConfirmationResult,
 } from "firebase/auth";
+import { CheckCircle2, Phone as PhoneIcon, X } from "lucide-react";
 import { auth } from "@/lib/firebase-client";
 import { useApp } from "@/app/providers";
 
@@ -66,7 +67,13 @@ function getRecaptchaSize() {
   return window.innerWidth < 380 ? "compact" : "normal";
 }
 
-export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
+export default function AuthFlow({
+  onSuccess,
+  onClose,
+}: {
+  onSuccess: () => void;
+  onClose?: () => void;
+}) {
   const { loginWithServerUser } = useApp();
 
   const [step, setStep] = useState<"phone" | "otp">("phone");
@@ -77,6 +84,7 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [recaptchaReady, setRecaptchaReady] = useState(false);
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
@@ -127,6 +135,39 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
     return () => {
       recaptchaRef.current?.clear();
       recaptchaRef.current = null;
+    };
+  }, []);
+
+  // Google's reCAPTCHA script throws timeouts/network errors as raw, unhandled
+  // global errors (not rejections our own promises can catch) — left alone these
+  // crash the whole page with Next's dev error overlay. Intercept just this
+  // vendor script's errors, stop them from propagating, and recover the widget.
+  useEffect(() => {
+    function isRecaptchaError(message: unknown) {
+      return typeof message === "string" && message.toLowerCase().includes("recaptcha");
+    }
+
+    function handleError(event: ErrorEvent) {
+      if (!isRecaptchaError(event.message)) return;
+      event.preventDefault();
+      setPhoneError("Verification timed out. Please try again.");
+      void rebuildRecaptcha();
+    }
+
+    function handleRejection(event: PromiseRejectionEvent) {
+      const reason = event.reason;
+      const message = reason instanceof Error ? reason.message : String(reason ?? "");
+      if (!isRecaptchaError(message)) return;
+      event.preventDefault();
+      setPhoneError("Verification timed out. Please try again.");
+      void rebuildRecaptcha();
+    }
+
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
     };
   }, []);
 
@@ -269,7 +310,8 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
       }
       const { user } = await res.json();
       loginWithServerUser(user);
-      onSuccess();
+      setVerified(true);
+      setTimeout(onSuccess, 1200);
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Login failed — please try again.");
     } finally {
@@ -277,48 +319,54 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
     }
   }
 
+  const title = verified ? "Welcome!" : step === "phone" ? "Login to Rento" : "Enter OTP";
+  const subtitle = verified
+    ? "You're now logged in"
+    : step === "phone"
+      ? "Enter your mobile number to continue"
+      : `OTP sent to ${phone}`;
+
   const content =
     step === "phone" ? (
       <>
-        <p className="text-sm text-muted-foreground">Enter your mobile number</p>
-        <h2 className="mt-1 text-xl font-800 text-foreground">We&apos;ll send you an OTP</h2>
-
-        <div className="mt-6">
-          <div className="rounded-xl border border-border bg-input px-3 py-3 focus-within:border-primary">
+        <div>
+          <label className="mb-1.5 block text-sm font-600 text-foreground">Mobile Number</label>
+          <div className="flex items-center overflow-hidden rounded-xl border-2 border-primary/70 bg-card transition-all focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(255,79,64,0.14)]">
+            <span className="flex items-center gap-1.5 border-r border-primary/60 bg-primary/5 px-3 py-3 text-sm font-600 text-muted-foreground">
+              <PhoneIcon size={16} />
+              {COUNTRY_CODE}
+            </span>
             <input
               type="tel"
-              inputMode="tel"
-              maxLength={13}
-              placeholder="+919876543210"
-              value={phone}
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="98765 43210"
+              value={phone.slice(COUNTRY_CODE.length)}
               onChange={(e) => {
                 setPhone(toInternationalPhone(e.target.value));
                 setPhoneError("");
               }}
-              className="w-full bg-transparent text-sm outline-none"
+              className="flex-1 appearance-none border-0 bg-transparent px-3 py-3 text-sm font-500 text-foreground outline-none placeholder:text-muted-foreground/55"
             />
           </div>
-          {phoneError && <p className="mt-2 text-xs font-600 text-red-500">{phoneError}</p>}
+          {phoneError && <p className="mt-1.5 text-xs font-600 text-red-500">{phoneError}</p>}
         </div>
 
         <button
           onClick={handleSendOtp}
           disabled={sending || !recaptchaReady}
-          className="btn-primary mt-6 w-full py-3 text-sm active:scale-[0.98]"
+          className="btn-primary mt-5 w-full py-3 text-sm active:scale-[0.98]"
         >
           {sending ? "Sending…" : recaptchaReady ? "Send OTP" : "Preparing reCAPTCHA…"}
         </button>
 
-        <p className="mt-4 text-center text-[11px] text-muted-foreground">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
           By continuing, you agree to Rento&apos;s Terms &amp; Privacy Policy.
         </p>
       </>
     ) : (
       <>
-        <p className="text-sm text-muted-foreground">OTP sent to</p>
-        <h2 className="mt-1 text-xl font-800 text-foreground">{phone}</h2>
-
-        <div className="mt-6 flex justify-between gap-1.5 sm:gap-2">
+        <div className="flex justify-center gap-2 sm:gap-3">
           {otp.map((digit, i) => (
             <input
               key={i}
@@ -331,25 +379,27 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
               value={digit}
               onChange={(e) => handleOtpChange(i, e.target.value)}
               onKeyDown={(e) => handleOtpKeyDown(i, e)}
-              className="h-12 w-9 rounded-xl border border-border text-center text-lg font-700 outline-none focus:border-primary sm:w-10"
+              className="h-12 w-10 flex-1 appearance-none rounded-[10px] border-2 border-border bg-card text-center text-lg font-700 text-foreground outline-none transition-colors focus:border-primary focus:ring-[3px] focus:ring-[rgba(255,79,64,0.15)] sm:h-14 sm:w-[52px] sm:flex-none sm:text-2xl"
             />
           ))}
         </div>
-        {otpError && <p className="mt-3 text-xs font-600 text-red-500">{otpError}</p>}
+        {otpError && <p className="mt-3 text-center text-xs font-600 text-red-500">{otpError}</p>}
 
         <button
           onClick={handleVerify}
           disabled={verifying}
-          className="btn-primary mt-6 w-full py-3 text-sm active:scale-[0.98]"
+          className="btn-primary mt-5 w-full py-3 text-sm active:scale-[0.98]"
         >
           {verifying ? "Verifying…" : "Verify & Continue"}
         </button>
 
-        <div className="mt-4 text-center text-xs text-muted-foreground">
+        <div className="mt-4 text-center text-sm text-muted-foreground">
           {secondsLeft > 0 ? (
-            <span>Resend OTP in {secondsLeft}s</span>
+            <span>
+              Resend OTP in <span className="font-700 text-primary tabular-nums">{secondsLeft}s</span>
+            </span>
           ) : (
-            <button onClick={handleResend} disabled={sending} className="font-700 text-primary">
+            <button onClick={handleResend} disabled={sending} className="font-600 text-primary hover:underline">
               {sending ? "Resending…" : "Resend OTP"}
             </button>
           )}
@@ -357,20 +407,55 @@ export default function AuthFlow({ onSuccess }: { onSuccess: () => void }) {
 
         <button
           onClick={() => setStep("phone")}
-          className="mt-2 block w-full text-center text-xs text-muted-foreground"
+          className="mt-2 block w-full text-center text-sm text-muted-foreground hover:text-foreground"
         >
-          Change mobile number
+          ← Change mobile number
         </button>
       </>
     );
 
   return (
     <div>
-      {content}
+      <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+        <div>
+          <h2 className="text-lg font-700 text-foreground">{title}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+        {onClose && (
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
+      <div className="pt-5">
+        {verified ? (
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 size={36} className="text-green-600" />
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-700 text-foreground">Logged In!</p>
+              <p className="mt-1 text-sm text-muted-foreground">Redirecting you back…</p>
+            </div>
+          </div>
+        ) : (
+          content
+        )}
+      </div>
+
       <div
         id="recaptcha-container"
         ref={recaptchaContainerRef}
-        className="mt-4 flex justify-center rounded-xl border border-border bg-card p-3"
+        className={
+          step === "phone" && !verified
+            ? "mt-4 flex justify-center rounded-xl border border-border bg-card p-3"
+            : "hidden"
+        }
       />
     </div>
   );
