@@ -1,0 +1,9 @@
+# dependencies
+/node_modules
+
+# secrets — real connection strings, never .env.example
+.env
+.env.local
+
+# generated Prisma client
+/generated

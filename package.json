@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "packages/db",
     "portalAdmin",
     "portalPartner",
     "rentoCustomer"
@@ -13,6 +14,9 @@
     "build:customer": "npm --prefix rentoCustomer run build",
     "dev:admin": "npm --prefix portalAdmin run dev",
     "dev:partner": "npm --prefix portalPartner run dev",
-    "dev:customer": "npm --prefix rentoCustomer run dev"
+    "dev:customer": "npm --prefix rentoCustomer run dev",
+    "db:generate": "npm --prefix packages/db run generate",
+    "db:migrate": "npm --prefix packages/db run migrate:dev",
+    "db:studio": "npm --prefix packages/db run studio"
   }
 }

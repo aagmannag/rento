@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OwnerApprovalStatus {
+  Pending
+  Approved
+  Rejected
+  Suspended
+}
+
+enum VehicleStatus {
+  Active
+  Inactive
+}
+
+enum BookingStatus {
+  Upcoming
+  Completed
+  Cancelled
+}
+
+enum PaymentStatus {
+  Pending
+  Submitted
+  Verified
+  Rejected
+}
+
+/// Owned by portalAdmin. The Rento platform's own admin accounts.
+model AdminUser {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("admin_users")
+}
+
+/// Owned by portalPartner (shop owners sign up there); read/moderated by portalAdmin.
+model ShopOwner {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerName       String              @map("owner_name")
+  shopName        String              @map("shop_name")
+  email           String              @unique
+  passwordHash    String              @map("password_hash")
+  phone           String
+  city            String
+  address         String
+  pincode         String?
+  latitude        Float?
+  longitude       Float?
+  status          OwnerApprovalStatus @default(Pending)
+  rejectionReason String?             @map("rejection_reason")
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  vehicles Vehicle[]
+  bookings Booking[]
+
+  @@map("shop_owners")
+}
+
+/// Owned by portalPartner; read by rentoCustomer (customer-facing listings) and portalAdmin (moderation).
+model Vehicle {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId         String        @map("owner_id") @db.Uuid
+  owner           ShopOwner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category        String
+  name            String
+  brand           String
+  engineLabel     String        @default("") @map("engine_label")
+  photoUrl        String?       @map("photo_url")
+  photoUrls       String[]      @default([]) @map("photo_urls")
+  pricePerDay     Int           @map("price_per_day")
+  pricePerHour    Int           @map("price_per_hour")
+  securityDeposit Int           @map("security_deposit")
+  stock           Int           @default(1)
+  fuel            String        @default("Petrol")
+  transmission    String        @default("Manual")
+  seats           Int           @default(2)
+  mileage         String        @default("")
+  features        String[]      @default([])
+  description     String?
+  city            String
+  status          VehicleStatus @default(Active)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  bookings Booking[]
+
+  @@map("vehicles")
+}
+
+/// Owned by portalPartner (shop owner's own booking ledger); mirrored into from
+/// rentoCustomer when a customer books a partner-listed vehicle (best-effort, see
+/// CustomerBooking.partnerBookingId); read by portalAdmin for platform stats and payment sync.
+model Booking {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId        String        @map("owner_id") @db.Uuid
+  owner          ShopOwner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicleId      String        @map("vehicle_id") @db.Uuid
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  customerName   String        @map("customer_name")
+  customerPhone  String        @map("customer_phone")
+  pickupDateTime DateTime      @map("pickup_datetime") @db.Timestamptz(6)
+  returnDateTime DateTime      @map("return_datetime") @db.Timestamptz(6)
+  quantity       Int           @default(1)
+  totalAmount    Int           @default(0) @map("total_amount")
+  status         BookingStatus @default(Upcoming)
+  paymentStatus  PaymentStatus @default(Pending) @map("payment_status")
+  utrNumber      String?       @map("utr_number")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("bookings")
+}
+
+/// Owned by rentoCustomer. Customer accounts (phone-based login).
+model User {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone     String   @unique
+  name      String   @default("Rento User")
+  gender    String?
+  city      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  bookings CustomerBooking[]
+
+  @@map("users")
+}
+
+/// Owned by rentoCustomer — the source of truth for a customer's own booking history and
+/// manual UPI payment verification. `vehicleId` is a free-text id (may reference a
+/// portalPartner vehicle, prefixed "partner-", or another listing source), not an FK.
+/// `partnerBookingId` is deliberately NOT a Prisma relation to Booking: it's a
+/// best-effort, loosely-coupled pointer into a different app's table, and sync failures
+/// there must never block or cascade against a customer's own booking record.
+model CustomerBooking {
+  id                   String        @id
+  userId               String        @map("user_id") @db.Uuid
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId            String        @map("vehicle_id")
+  vehicleName          String        @map("vehicle_name")
+  vehicleImage         String?       @map("vehicle_image")
+  vehiclePhoto         String?       @map("vehicle_photo")
+  city                 String
+  category             String
+  shopName             String        @map("shop_name")
+  shopAddress          String        @map("shop_address")
+  shopLatitude         Float?        @map("shop_latitude")
+  shopLongitude        Float?        @map("shop_longitude")
+  rentalMode           String        @map("rental_mode")
+  pickupDateTime       DateTime      @map("pickup_datetime") @db.Timestamptz(6)
+  returnDateTime       DateTime      @map("return_datetime") @db.Timestamptz(6)
+  days                 Int           @default(0)
+  hours                Int           @default(0)
+  quantity             Int           @default(1)
+  pricePerDay          Int           @map("price_per_day")
+  pricePerHour         Int           @map("price_per_hour")
+  rentalCost           Int           @map("rental_cost")
+  securityDeposit      Int           @map("security_deposit")
+  totalPayableOnline   Int           @map("total_payable_online")
+  totalPayableAtShop   Int           @map("total_payable_at_shop")
+  status               BookingStatus @default(Upcoming)
+  paymentStatus        PaymentStatus @default(Pending) @map("payment_status")
+  utrNumber            String?       @map("utr_number")
+  paymentScreenshotUrl String?       @map("payment_screenshot_url")
+  paymentNote          String?       @map("payment_note")
+  partnerBookingId     String?       @map("partner_booking_id")
+  paymentSubmittedAt   DateTime?     @map("payment_submitted_at") @db.Timestamptz(6)
+  paymentVerifiedAt    DateTime?     @map("payment_verified_at") @db.Timestamptz(6)
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("customer_bookings")
+}
+
+/// Owned by rentoCustomer. "Contact us" form submissions.
+model ContactMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  contact   String
+  message   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("contact_messages")
+}

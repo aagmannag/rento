@@ -38,6 +38,10 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // @rento/db is a workspace package that ships raw TypeScript (no build step of its
+  // own) — Next.js only transpiles source inside this app by default, so packages
+  // outside it need to be listed explicitly or imports from it fail to compile.
+  transpilePackages: ["@rento/db"],
   images: {
     // Vehicle photos here can come from the portal's /uploads path or an owner-pasted
     // web URL — no fixed set of hosts to allowlist, so skip the image optimizer.

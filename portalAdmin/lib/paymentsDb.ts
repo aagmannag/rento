@@ -1,32 +1,8 @@
-import { Pool } from "pg";
+import { prisma } from "@rento/db";
 
 // Payment submissions live in rentoCustomer's own customer_bookings/users tables —
 // a different app's "territory" in the shared database, but this app needs to review
-// and verify them platform-wide. Read/write only what's needed for that; never touch
-// rentoCustomer's schema itself (it owns creating these tables).
-let pool: Pool | null = null;
-
-function getPool(): Pool | null {
-  if (!process.env.DATABASE_URL) return null;
-  if (!pool) {
-    // Neon (and most managed Postgres providers) require SSL; local Docker/Postgres
-    // doesn't speak it at all. Detect by host rather than NODE_ENV so this works
-    // correctly regardless of how/where the app is actually running.
-    const isLocalHost = /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL);
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: isLocalHost ? undefined : { rejectUnauthorized: false },
-    });
-    // A pooled client that's just sitting idle can still emit an 'error' if its
-    // connection to Postgres drops (e.g. the DB restarts or a network blip). Without
-    // this listener, Node treats that as an uncaught exception and kills the whole
-    // process — for every user, not just whoever's request was in flight.
-    pool.on("error", (err) => console.error("Unexpected error on idle Postgres client:", err));
-  }
-  return pool;
-}
-
-// Payment screenshots are uploaded to rentoCustomer's own server, not this one.
+// and verify them platform-wide.
 const RENTO_CUSTOMER_ORIGIN = process.env.RENTO_CUSTOMER_ORIGIN || "http://localhost:3000";
 
 function resolveUrl(url: string | null): string | null {
@@ -50,105 +26,75 @@ export interface PendingPayment {
   createdAt: string;
 }
 
-interface PendingPaymentRow {
-  id: string;
-  vehicle_name: string;
-  vehicle_photo: string | null;
-  city: string;
-  quantity: number;
-  total_payable_online: number;
-  utr_number: string | null;
-  payment_screenshot_url: string | null;
-  payment_submitted_at: string | null;
-  created_at: string;
-  name: string;
-  phone: string;
-}
-
 /** All bookings awaiting manual payment verification, across every customer. */
 export async function listPendingPayments(): Promise<PendingPayment[]> {
-  const db = getPool();
-  if (!db) return [];
-
   try {
-    const result = await db.query<PendingPaymentRow>(`
-      SELECT cb.id, cb.vehicle_name, cb.vehicle_photo, cb.city, cb.quantity,
-             cb.total_payable_online, cb.utr_number, cb.payment_screenshot_url,
-             cb.payment_submitted_at, cb.created_at, u.name, u.phone
-      FROM customer_bookings cb
-      JOIN users u ON u.id = cb.user_id
-      WHERE cb.payment_status = 'Submitted'
-      ORDER BY cb.payment_submitted_at ASC NULLS LAST
-    `);
+    const rows = await prisma.customerBooking.findMany({
+      where: { paymentStatus: "Submitted" },
+      orderBy: { paymentSubmittedAt: { sort: "asc", nulls: "last" } },
+      include: { user: { select: { name: true, phone: true } } },
+    });
 
-    return result.rows.map((row) => ({
+    return rows.map((row) => ({
       id: row.id,
-      customerName: row.name,
-      customerPhone: row.phone,
-      vehicleName: row.vehicle_name,
-      vehiclePhoto: resolveUrl(row.vehicle_photo),
+      customerName: row.user.name,
+      customerPhone: row.user.phone,
+      vehicleName: row.vehicleName,
+      vehiclePhoto: resolveUrl(row.vehiclePhoto),
       city: row.city,
       quantity: row.quantity,
-      totalPayableOnline: row.total_payable_online,
-      utrNumber: row.utr_number,
-      paymentScreenshotUrl: resolveUrl(row.payment_screenshot_url),
-      paymentSubmittedAt: row.payment_submitted_at,
-      createdAt: row.created_at,
+      totalPayableOnline: row.totalPayableOnline,
+      utrNumber: row.utrNumber,
+      paymentScreenshotUrl: resolveUrl(row.paymentScreenshotUrl),
+      paymentSubmittedAt: row.paymentSubmittedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
     }));
   } catch (err) {
-    // rentoCustomer's tables may not exist yet (fresh DB, or it's never been run) —
-    // degrade to "nothing pending" rather than breaking the admin console.
     console.error("Failed to load pending payments:", err);
     return [];
   }
 }
 
 async function syncMirroredBookingPayment(
-  db: Pool,
   partnerBookingId: string | null,
-  paymentStatus: string
+  paymentStatus: "Verified" | "Rejected"
 ): Promise<void> {
   if (!partnerBookingId) return;
   try {
-    await db.query("UPDATE bookings SET payment_status = $2 WHERE id = $1", [
-      partnerBookingId,
-      paymentStatus,
-    ]);
+    await prisma.booking.update({ where: { id: partnerBookingId }, data: { paymentStatus } });
   } catch (err) {
     console.error("Failed to sync payment status into shop owner's portal:", err);
   }
 }
 
 export async function verifyPayment(bookingId: string): Promise<boolean> {
-  const db = getPool();
-  if (!db) return false;
+  const partnerBookingId = await prisma.$transaction(async (tx) => {
+    const existing = await tx.customerBooking.findUnique({ where: { id: bookingId } });
+    if (!existing || existing.paymentStatus !== "Submitted") return undefined;
+    const updated = await tx.customerBooking.update({
+      where: { id: bookingId },
+      data: { paymentStatus: "Verified", paymentVerifiedAt: new Date(), paymentNote: null },
+    });
+    return updated.partnerBookingId;
+  });
+  if (partnerBookingId === undefined) return false;
 
-  const result = await db.query<{ partner_booking_id: string | null }>(
-    `UPDATE customer_bookings
-     SET payment_status = 'Verified', payment_verified_at = now(), payment_note = NULL
-     WHERE id = $1 AND payment_status = 'Submitted'
-     RETURNING partner_booking_id`,
-    [bookingId]
-  );
-  if (!result.rows[0]) return false;
-
-  await syncMirroredBookingPayment(db, result.rows[0].partner_booking_id, "Verified");
+  await syncMirroredBookingPayment(partnerBookingId, "Verified");
   return true;
 }
 
 export async function rejectPayment(bookingId: string, reason: string): Promise<boolean> {
-  const db = getPool();
-  if (!db) return false;
+  const partnerBookingId = await prisma.$transaction(async (tx) => {
+    const existing = await tx.customerBooking.findUnique({ where: { id: bookingId } });
+    if (!existing || existing.paymentStatus !== "Submitted") return undefined;
+    const updated = await tx.customerBooking.update({
+      where: { id: bookingId },
+      data: { paymentStatus: "Rejected", paymentNote: reason },
+    });
+    return updated.partnerBookingId;
+  });
+  if (partnerBookingId === undefined) return false;
 
-  const result = await db.query<{ partner_booking_id: string | null }>(
-    `UPDATE customer_bookings
-     SET payment_status = 'Rejected', payment_note = $2
-     WHERE id = $1 AND payment_status = 'Submitted'
-     RETURNING partner_booking_id`,
-    [bookingId, reason]
-  );
-  if (!result.rows[0]) return false;
-
-  await syncMirroredBookingPayment(db, result.rows[0].partner_booking_id, "Rejected");
+  await syncMirroredBookingPayment(partnerBookingId, "Rejected");
   return true;
 }

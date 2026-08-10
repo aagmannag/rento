@@ -1,5 +1,5 @@
 # OS / editor cruft at the repo root — each app's own .gitignore covers everything
-# inside portalForShopOwner/, portalAdmin/, and rentoCustomer/ already.
+# inside portalAdmin/, portalPartner/, rentoCustomer/, and packages/db/ already.
 .DS_Store
 Thumbs.db
 .vscode/
