@@ -69,43 +69,70 @@ function ShopOwnersContent() {
           description="Nothing to show in this tab right now."
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs font-700 uppercase tracking-wide text-muted-foreground">
-                  <th className="px-5 py-3">Shop</th>
-                  <th className="px-5 py-3">Owner</th>
-                  <th className="px-5 py-3">Contact</th>
-                  <th className="px-5 py-3">City</th>
-                  <th className="px-5 py-3">Applied</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {owners.map((o) => (
-                  <tr key={o.id} className="border-b border-border last:border-0">
-                    <td className="max-w-[180px] truncate px-5 py-3 font-600 text-foreground" title={o.shopName}>{o.shopName}</td>
-                    <td className="max-w-[160px] truncate px-5 py-3 text-foreground" title={o.ownerName}>{o.ownerName}</td>
-                    <td className="max-w-[200px] px-5 py-3">
-                      <p className="truncate text-foreground" title={o.email}>{o.email}</p>
-                      <p className="text-xs text-muted-foreground">{o.phone}</p>
-                    </td>
-                    <td className="px-5 py-3 text-muted-foreground">{o.city}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{formatDate(o.createdAt)}</td>
-                    <td className="px-5 py-3"><StatusBadge status={o.status} /></td>
-                    <td className="px-5 py-3">
-                      <Link href={`/shop-owners/${o.id}`} className="inline-block px-2 py-1.5 text-xs font-700 text-primary">
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          <div className="space-y-3 md:hidden">
+            {owners.map((o) => (
+              <Link
+                key={o.id}
+                href={`/shop-owners/${o.id}`}
+                className="block rounded-2xl border border-border bg-card p-4 shadow-card active:scale-[0.99]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-700 text-foreground">{o.shopName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{o.ownerName} · {o.city}</p>
+                  </div>
+                  <StatusBadge status={o.status} />
+                </div>
+                <div className="mt-3 space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+                  <p className="truncate">{o.email}</p>
+                  <p className="flex items-center justify-between">
+                    <span>{o.phone}</span>
+                    <span>Applied {formatDate(o.createdAt)}</span>
+                  </p>
+                </div>
+              </Link>
+            ))}
           </div>
-        </div>
+
+          <div className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-card md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs font-700 uppercase tracking-wide text-muted-foreground">
+                    <th className="px-5 py-3">Shop</th>
+                    <th className="px-5 py-3">Owner</th>
+                    <th className="px-5 py-3">Contact</th>
+                    <th className="px-5 py-3">City</th>
+                    <th className="px-5 py-3">Applied</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {owners.map((o) => (
+                    <tr key={o.id} className="border-b border-border last:border-0">
+                      <td className="max-w-[180px] truncate px-5 py-3 font-600 text-foreground" title={o.shopName}>{o.shopName}</td>
+                      <td className="max-w-[160px] truncate px-5 py-3 text-foreground" title={o.ownerName}>{o.ownerName}</td>
+                      <td className="max-w-[200px] px-5 py-3">
+                        <p className="truncate text-foreground" title={o.email}>{o.email}</p>
+                        <p className="text-xs text-muted-foreground">{o.phone}</p>
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground">{o.city}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{formatDate(o.createdAt)}</td>
+                      <td className="px-5 py-3"><StatusBadge status={o.status} /></td>
+                      <td className="px-5 py-3">
+                        <Link href={`/shop-owners/${o.id}`} className="inline-block px-2 py-1.5 text-xs font-700 text-primary">
+                          View →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

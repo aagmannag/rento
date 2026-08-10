@@ -53,14 +53,14 @@ export default function ConfirmDialog({
           </div>
         )}
 
-        <div className="mt-6 flex gap-3">
-          <button onClick={onCancel} className="btn-outline flex-1 py-2.5 text-sm">
+        <div className="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:gap-3">
+          <button onClick={onCancel} className="btn-outline min-h-[46px] flex-1 text-sm">
             Cancel
           </button>
           <button
             onClick={() => onConfirm(requireReason ? reason.trim() : undefined)}
             disabled={busy || !canConfirm}
-            className={`flex-1 rounded-[var(--radius)] py-2.5 text-sm font-600 text-white transition active:scale-95 disabled:opacity-50 ${
+            className={`min-h-[46px] flex-1 rounded-[var(--radius)] text-sm font-600 text-white transition active:scale-95 disabled:opacity-50 ${
               danger ? "bg-red-600 hover:bg-red-700" : "btn-primary"
             }`}
           >

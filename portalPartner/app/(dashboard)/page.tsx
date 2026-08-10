@@ -76,41 +76,66 @@ export default function DashboardPage() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs font-700 uppercase tracking-wide text-muted-foreground">
-                  <th className="px-5 py-3">Vehicle</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Pickup</th>
-                  <th className="px-5 py-3">Amount</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Payment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentBookings.map((b) => (
-                  <tr key={b.id} className="border-b border-border last:border-0">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                          {b.vehiclePhotoUrl && (
-                            <Image src={b.vehiclePhotoUrl} alt={b.vehicleName} fill className="object-cover" />
-                          )}
-                        </div>
-                        <span className="font-600 text-foreground">{b.vehicleName}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-foreground">{b.customerName}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{formatDateTime(b.pickupDateTime)}</td>
-                    <td className="px-5 py-3 font-700 text-foreground">₹{b.totalAmount}</td>
-                    <td className="px-5 py-3"><StatusBadge status={b.status} /></td>
-                    <td className="px-5 py-3"><StatusBadge status={b.paymentStatus} /></td>
+          <>
+            <div className="hidden md:block md:overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs font-700 uppercase tracking-wide text-muted-foreground">
+                    <th className="px-5 py-3">Vehicle</th>
+                    <th className="px-5 py-3">Customer</th>
+                    <th className="px-5 py-3">Pickup</th>
+                    <th className="px-5 py-3">Amount</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Payment</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {recentBookings.map((b) => (
+                    <tr key={b.id} className="border-b border-border last:border-0">
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                            {b.vehiclePhotoUrl && (
+                              <Image src={b.vehiclePhotoUrl} alt={b.vehicleName} fill className="object-cover" />
+                            )}
+                          </div>
+                          <span className="font-600 text-foreground">{b.vehicleName}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-foreground">{b.customerName}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{formatDateTime(b.pickupDateTime)}</td>
+                      <td className="px-5 py-3 font-700 text-foreground">₹{b.totalAmount}</td>
+                      <td className="px-5 py-3"><StatusBadge status={b.status} /></td>
+                      <td className="px-5 py-3"><StatusBadge status={b.paymentStatus} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="divide-y divide-border md:hidden">
+              {recentBookings.map((b) => (
+                <div key={b.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                    {b.vehiclePhotoUrl && (
+                      <Image src={b.vehiclePhotoUrl} alt={b.vehicleName} fill className="object-cover" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-700 text-foreground">{b.vehicleName}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {b.customerName} · {formatDateTime(b.pickupDateTime)}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <StatusBadge status={b.status} />
+                      <StatusBadge status={b.paymentStatus} />
+                    </div>
+                  </div>
+                  <p className="shrink-0 text-sm font-800 text-foreground">₹{b.totalAmount}</p>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

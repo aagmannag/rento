@@ -82,7 +82,7 @@ export default function BookingsPage() {
         />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block md:overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs font-700 uppercase tracking-wide text-muted-foreground">
@@ -149,6 +149,71 @@ export default function BookingsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="divide-y divide-border md:hidden">
+            {filtered.map((b) => (
+              <div key={b.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                    {b.vehiclePhotoUrl && (
+                      <Image src={b.vehiclePhotoUrl} alt={b.vehicleName} fill className="object-cover" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-sm font-700 text-foreground">{b.vehicleName}</p>
+                      <p className="shrink-0 text-sm font-800 text-foreground">₹{b.totalAmount}</p>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{b.customerName} · {b.customerPhone}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={b.status} />
+                      <StatusBadge status={b.paymentStatus} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-muted/60 px-3 py-2.5 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Pickup</p>
+                    <p className="mt-0.5 font-600 text-foreground">{formatDateTime(b.pickupDateTime)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Return</p>
+                    <p className="mt-0.5 font-600 text-foreground">{formatDateTime(b.returnDateTime)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Qty</p>
+                    <p className="mt-0.5 font-600 text-foreground">{b.quantity}</p>
+                  </div>
+                  {b.utrNumber && (
+                    <div>
+                      <p className="text-muted-foreground">UTR</p>
+                      <p className="mt-0.5 truncate font-mono font-600 text-foreground">{b.utrNumber}</p>
+                    </div>
+                  )}
+                </div>
+
+                {b.status === "Upcoming" && (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => handleStatusChange(b.id, "Completed")}
+                      disabled={busyId === b.id}
+                      className="flex-1 rounded-lg border border-border py-2.5 text-xs font-700 text-foreground active:scale-[0.98] disabled:opacity-50"
+                    >
+                      Mark Completed
+                    </button>
+                    <button
+                      onClick={() => handleStatusChange(b.id, "Cancelled")}
+                      disabled={busyId === b.id}
+                      className="flex-1 rounded-lg border border-border py-2.5 text-xs font-700 text-red-500 active:scale-[0.98] disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

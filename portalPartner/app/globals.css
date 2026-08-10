@@ -171,3 +171,10 @@ textarea {
     color: #e0453a;
   }
 }
+
+@media (max-width: 640px) {
+  .input-field {
+    font-size: 1rem;
+    padding: 0.75rem 0.9rem;
+  }
+}

@@ -115,18 +115,18 @@ export default function PaymentsPage() {
                 )}
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <button
                   onClick={() => handleVerify(p.id)}
                   disabled={busyId === p.id}
-                  className="btn-primary flex-1 py-2.5 text-sm disabled:opacity-50"
+                  className="btn-primary min-h-[46px] flex-1 text-sm disabled:opacity-50"
                 >
                   {busyId === p.id ? "Please wait…" : "Verify Payment"}
                 </button>
                 <button
                   onClick={() => setRejectingId(p.id)}
                   disabled={busyId === p.id}
-                  className="flex-1 rounded-[var(--radius)] border border-red-200 py-2.5 text-sm font-600 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  className="min-h-[46px] flex-1 rounded-[var(--radius)] border border-red-200 text-sm font-600 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                 >
                   Reject
                 </button>

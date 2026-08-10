@@ -57,11 +57,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-3 md:hidden">
+        <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card px-4 py-3 md:hidden">
           <button
             aria-label="Open menu"
             onClick={() => setDrawerOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
+            className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-foreground transition hover:bg-muted active:scale-95"
           >
             <Menu size={20} />
           </button>
