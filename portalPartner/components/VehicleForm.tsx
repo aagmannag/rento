@@ -4,8 +4,6 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-  Bike,
-  Car as CarIcon,
   ChevronLeft,
   ChevronRight,
   ImagePlus,
@@ -13,9 +11,9 @@ import {
   RotateCcw,
   Star,
   X,
-  Zap,
 } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { useOwner } from "@/app/providers";
 import {
   CATEGORIES,
@@ -29,6 +27,14 @@ import {
 
 const FUEL_OPTIONS: FuelType[] = ["Petrol", "Diesel", "Electric", "CNG"];
 const TRANSMISSION_OPTIONS: Transmission[] = ["Manual", "Automatic"];
+
+// Matches @rento/db's MIN_ONLINE_PAYMENT_RUPEES (the authoritative check, re-enforced
+// server-side in POST/PATCH /api/vehicles) — duplicated here rather than imported since
+// @rento/db pulls in Prisma/pg, which can't be bundled into a "use client" component.
+// Below this, a customer booking this vehicle for a single day/hour would be sent to pay
+// a UPI amount small enough that banks commonly flag it as a fraud-probe pattern and
+// silently reject it, which looks like a broken booking flow rather than a pricing issue.
+const MIN_ONLINE_PAYMENT_RUPEES = 10;
 
 const MAX_PHOTOS = 6;
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024; // mirrors /api/upload's limit — fail fast client-side
@@ -93,9 +99,9 @@ const CATEGORY_EXAMPLES: Record<
 };
 
 const CATEGORY_STYLE: Record<Category, { icon: React.ElementType; bg: string; iconBg: string; text: string }> = {
-  Scooty: { icon: Zap, bg: "bg-blue-50", iconBg: "bg-blue-100", text: "text-blue-600" },
-  Bike: { icon: Bike, bg: "bg-orange-50", iconBg: "bg-orange-100", text: "text-orange-600" },
-  Car: { icon: CarIcon, bg: "bg-green-50", iconBg: "bg-green-100", text: "text-green-600" },
+  Scooty: { icon: CATEGORY_ICON.Scooty, bg: "bg-blue-50", iconBg: "bg-blue-100", text: "text-blue-600" },
+  Bike: { icon: CATEGORY_ICON.Bike, bg: "bg-orange-50", iconBg: "bg-orange-100", text: "text-orange-600" },
+  Car: { icon: CATEGORY_ICON.Car, bg: "bg-green-50", iconBg: "bg-green-100", text: "text-green-600" },
 };
 
 interface FormState {
@@ -349,10 +355,14 @@ export default function VehicleForm({ mode, vehicle }: { mode: "create" | "edit"
     }
 
     const price = Number(form.pricePerDay);
-    if (!Number.isFinite(price) || price <= 0) next.pricePerDay = "Enter a valid daily price";
+    if (!Number.isFinite(price) || price < MIN_ONLINE_PAYMENT_RUPEES) {
+      next.pricePerDay = `Enter a daily price of at least ₹${MIN_ONLINE_PAYMENT_RUPEES}`;
+    }
 
     const hourly = Number(form.pricePerHour);
-    if (!Number.isFinite(hourly) || hourly <= 0) next.pricePerHour = "Enter a valid hourly price";
+    if (!Number.isFinite(hourly) || hourly < MIN_ONLINE_PAYMENT_RUPEES) {
+      next.pricePerHour = `Enter an hourly price of at least ₹${MIN_ONLINE_PAYMENT_RUPEES}`;
+    }
 
     const deposit = Number(form.securityDeposit);
     if (!Number.isFinite(deposit) || deposit < 0) next.securityDeposit = "Enter a valid deposit amount";

@@ -18,15 +18,34 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me")
-      .then((res) => res.json())
-      .then((data: { admin: AdminUser | null }) => {
-        if (!cancelled) setAdmin(data.admin);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setAuthLoading(false);
-      });
+
+    // A 503 from /api/auth/me (see its own doc comment) means a DB error prevented
+    // confirming this admin's profile — NOT that the session is invalid, since the JWT
+    // signature already proved that. Retry a couple of times before giving up, so a
+    // transient connection blip (observed live during testing — Neon occasionally drops
+    // a pooled connection) doesn't force an unnecessary logout.
+    async function checkSession() {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch("/api/auth/me");
+          if (res.ok) {
+            const data: { admin: AdminUser | null } = await res.json();
+            if (!cancelled) setAdmin(data.admin);
+            return;
+          }
+        } catch {
+          // Network error — fall through to retry below.
+        }
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      // Every attempt failed — DashboardShell will redirect to /login, same outcome as
+      // a genuine "not logged in" (the safest fallback once retries are exhausted).
+    }
+
+    checkSession().finally(() => {
+      if (!cancelled) setAuthLoading(false);
+    });
+
     return () => {
       cancelled = true;
     };

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Zap, Bike as BikeIcon, Car as CarIcon } from "lucide-react";
+import { MapPin } from "lucide-react";
 import Nav from "@/components/Nav";
+import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import { CITIES, isCityLive } from "@/lib/data";
@@ -13,9 +14,9 @@ import type { Category } from "@/lib/types";
 type SortKey = "popular" | "price-asc" | "price-desc" | "rating-desc";
 
 const TABS: { key: Category; label: string; icon: React.ElementType }[] = [
-  { key: "Scooty", label: "Scooty", icon: Zap },
-  { key: "Bike", label: "Bike", icon: BikeIcon },
-  { key: "Car", label: "Car", icon: CarIcon },
+  { key: "Scooty", label: "Scooty", icon: CATEGORY_ICON.Scooty },
+  { key: "Bike", label: "Bike", icon: CATEGORY_ICON.Bike },
+  { key: "Car", label: "Car", icon: CATEGORY_ICON.Car },
 ];
 
 export default function VehicleListPage() {

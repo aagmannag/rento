@@ -88,6 +88,15 @@ export default function PaymentsPage() {
                       Booking <span className="font-700 text-foreground">{p.id}</span> · Submitted{" "}
                       {formatDate(p.paymentSubmittedAt)}
                     </p>
+                    {/* The customer cancelled after paying but before this was verified.
+                        Still confirm the payment landed — that is what decides whether a
+                        refund is owed — but this is not a booking to treat as live. */}
+                    {p.bookingStatus === "Cancelled" && (
+                      <p className="mt-1.5 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-700 text-red-700">
+                        Cancelled by customer
+                        {p.refundAmount != null && ` · refund ₹${p.refundAmount} due`}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">

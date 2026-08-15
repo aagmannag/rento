@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, Bike as BikeIcon, Car as CarIcon } from "lucide-react";
 import Nav from "@/components/Nav";
+import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CATEGORIES, isCityLive } from "@/lib/data";
@@ -11,9 +11,9 @@ import { useApp } from "../providers";
 import type { Category } from "@/lib/types";
 
 const CATEGORY_STYLE: Record<Category, { icon: React.ElementType; iconBg: string; text: string }> = {
-  Scooty: { icon: Zap, iconBg: "bg-blue-100", text: "text-blue-600" },
-  Bike: { icon: BikeIcon, iconBg: "bg-orange-100", text: "text-orange-600" },
-  Car: { icon: CarIcon, iconBg: "bg-green-100", text: "text-green-600" },
+  Scooty: { icon: CATEGORY_ICON.Scooty, iconBg: "bg-blue-100", text: "text-blue-600" },
+  Bike: { icon: CATEGORY_ICON.Bike, iconBg: "bg-orange-100", text: "text-orange-600" },
+  Car: { icon: CATEGORY_ICON.Car, iconBg: "bg-green-100", text: "text-green-600" },
 };
 
 export default function CategoryPage() {

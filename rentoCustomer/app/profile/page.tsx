@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Phone, ShieldCheck, User as UserIcon, X } from "lucide-react";
+import { Pencil, Phone, ShieldCheck, Star, User as UserIcon, X } from "lucide-react";
 import Nav from "@/components/Nav";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -179,6 +179,31 @@ export default function ProfilePage() {
                 </p>
                 <p className="text-xs text-muted-foreground">Upcoming rides</p>
               </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-card">
+              <p className="text-xs text-muted-foreground">Your rating from shop owners</p>
+              {user.rating ? (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star
+                        key={n}
+                        size={16}
+                        className={n <= Math.round(user.rating!.value) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm font-800 text-foreground">{user.rating.value.toFixed(1)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({user.rating.count} rating{user.rating.count > 1 ? "s" : ""})
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  Not yet rated — shop owners rate you after a completed ride.
+                </p>
+              )}
             </div>
 
             <div className="mt-6 divide-y divide-border rounded-2xl border border-border bg-card shadow-card">

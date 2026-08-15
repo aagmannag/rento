@@ -5,10 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
-  Bike as BikeIcon,
   CreditCard,
-  Zap,
-  Car as CarIcon,
   ShieldCheck,
   Headphones,
   RotateCcw,
@@ -16,10 +13,12 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Nav from "@/components/Nav";
+import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import Footer from "@/components/Footer";
 import CityDropdown from "@/components/CityDropdown";
 import { useApp } from "./providers";
 import { CITIES, CITY_META, CATEGORIES, isCityLive } from "@/lib/data";
+import { FREE_CANCELLATION_HOURS } from "@/lib/cancellationPolicy";
 import type { Category } from "@/lib/types";
 
 // Shown as the advertised "starting from" price until a category has real listings —
@@ -35,21 +34,21 @@ const CATEGORY_STYLE: Record<
   { icon: React.ElementType; bg: string; border: string; iconBg: string; blurb: string }
 > = {
   Scooty: {
-    icon: Zap,
+    icon: CATEGORY_ICON.Scooty,
     bg: "bg-blue-50",
     border: "border-blue-200",
     iconBg: "bg-blue-100",
     blurb: "Lightweight & fuel-efficient. Perfect for city rides and beach hops.",
   },
   Bike: {
-    icon: BikeIcon,
+    icon: CATEGORY_ICON.Bike,
     bg: "bg-orange-50",
     border: "border-orange-200",
     iconBg: "bg-orange-100",
     blurb: "From commuter to adventure — find the perfect two-wheeler for your trip.",
   },
   Car: {
-    icon: CarIcon,
+    icon: CATEGORY_ICON.Car,
     bg: "bg-green-50",
     border: "border-green-200",
     iconBg: "bg-green-100",
@@ -64,7 +63,7 @@ const HOW_IT_WORKS = [
     desc: "Live today in Lucknow & Indore, with Goa, Haridwar, Rishikesh and Bangalore launching soon.",
   },
   {
-    icon: BikeIcon,
+    icon: CATEGORY_ICON.Bike,
     title: "Pick Your Ride",
     desc: "Browse scooties, bikes, and cars. Filter by category, check availability, and compare prices.",
   },
@@ -89,7 +88,7 @@ const TRUST_ITEMS = [
   {
     icon: RotateCcw,
     title: "Free Cancellation",
-    desc: "Cancel up to 24 hours before pickup for a full refund. No questions asked.",
+    desc: `Cancel ${FREE_CANCELLATION_HOURS} hours or more before pickup for a full refund. Partial refunds closer in.`,
   },
   {
     icon: Star,
@@ -105,6 +104,7 @@ export default function HomePage() {
     setSelectedCity,
     getVehicleCountForCity,
     getTotalVehicleCount,
+    platformRating,
   } = useApp();
 
   function handleFindVehicles() {
@@ -174,7 +174,7 @@ export default function HomePage() {
           <div className="mt-9 grid grid-cols-3 gap-3 text-white sm:mt-12 sm:flex sm:flex-wrap sm:gap-x-10 sm:gap-y-4">
             <Stat value={`${getTotalVehicleCount()}+`} label="Vehicles" />
             <Stat value={String(CITIES.length)} label="Cities" />
-            <Stat value="4.7★" label="Avg Rating" />
+            <Stat value={`${platformRating.value}★`} label="Avg Rating" />
           </div>
         </div>
       </section>
@@ -300,7 +300,9 @@ export default function HomePage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
                 <item.icon size={20} />
               </span>
-              <h3 className="mt-3 text-base font-700 text-white">{item.title}</h3>
+              <h3 className="mt-3 text-base font-700 text-white">
+                {item.icon === Star ? `${platformRating.value}★ Rated App` : item.title}
+              </h3>
               <p className="mt-1 text-sm text-white/60">{item.desc}</p>
             </div>
           ))}

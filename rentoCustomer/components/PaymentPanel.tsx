@@ -2,10 +2,60 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { AlertTriangle, Check, CheckCircle2, Clock, Copy, Smartphone, Upload } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Clock, Copy, Phone, Smartphone, Upload } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { buildUpiLink, UPI_ID } from "@/lib/upi";
+import { formatShopPhone } from "@/lib/phone";
+import { isValidUtrFormat, UTR_FORMATS, UTR_MAX_LENGTH } from "@/lib/utr";
 import type { Booking } from "@/lib/types";
+
+function formatPickupDateTime(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** Reiterates where/when/how to reach the shop right at the moment payment is submitted
+ *  or verified — the fuller "Pickup details" card already sits above this component on
+ *  the confirmation page, but a customer who just finished paying shouldn't have to
+ *  scroll back up to see what to do next. */
+function PickupSummary({ booking, tone }: { booking: Booking; tone: "green" | "blue" }) {
+  const boxClass = tone === "green" ? "bg-white/70" : "bg-white/80";
+  const phoneChipClass = tone === "green" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800";
+  // Withheld until the admin actually verifies payment — an unpaid/still-under-review
+  // hold has no confirmed booking behind it yet (see the identical gate on the
+  // confirmation page's own Pickup details card, which this reiterates). `tone` doubles
+  // as that check here rather than re-reading booking.paymentStatus, since this
+  // component is only ever rendered from the Verified or Submitted branches below and
+  // tone is set to match exactly which one.
+  const canShowPhone = tone === "green";
+  return (
+    <div className={`mt-3 rounded-xl ${boxClass} p-3 text-xs`}>
+      <p className="font-700 text-foreground">Your pickup details</p>
+      <p className="mt-1 text-foreground">{booking.shop.name}</p>
+      <p className="text-muted-foreground">{booking.shop.address}</p>
+      {canShowPhone && booking.shop.phone ? (
+        <a
+          href={formatShopPhone(booking.shop.phone).href}
+          className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-700 ${phoneChipClass}`}
+        >
+          <Phone size={12} /> {formatShopPhone(booking.shop.phone).display}
+        </a>
+      ) : !canShowPhone ? (
+        <p className="mt-1.5 text-muted-foreground">Shop contact number will be shown once payment is verified.</p>
+      ) : null}
+      <p className="mt-1.5 text-muted-foreground">
+        Pickup: <span className="font-700 text-foreground">{formatPickupDateTime(booking.pickupDateTime)}</span>
+      </p>
+    </div>
+  );
+}
 
 export default function PaymentPanel({
   booking,
@@ -51,8 +101,15 @@ export default function PaymentPanel({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!utr.trim()) {
+    const trimmedUtr = utr.trim();
+    if (!trimmedUtr) {
       setError("Enter the UTR / transaction reference number");
+      return;
+    }
+    if (!isValidUtrFormat(trimmedUtr)) {
+      setError(
+        "That doesn't match a valid transaction reference format — check the length against your transfer type below."
+      );
       return;
     }
 
@@ -71,7 +128,7 @@ export default function PaymentPanel({
       const res = await fetch(`/api/bookings/${booking.id}/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ utrNumber: utr.trim(), screenshotUrl }),
+        body: JSON.stringify({ utrNumber: trimmedUtr, screenshotUrl }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to submit payment");
@@ -88,12 +145,15 @@ export default function PaymentPanel({
 
   if (booking.paymentStatus === "Verified") {
     return (
-      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4">
-        <CheckCircle2 size={20} className="shrink-0 text-green-600" />
-        <div>
-          <p className="text-sm font-700 text-green-800">Payment verified</p>
-          <p className="text-xs text-green-700">UTR: {booking.utrNumber}</p>
+      <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4">
+        <div className="flex items-center gap-3">
+          <CheckCircle2 size={20} className="shrink-0 text-green-600" />
+          <div>
+            <p className="text-sm font-700 text-green-800">Payment verified</p>
+            <p className="text-xs text-green-700">UTR: {booking.utrNumber}</p>
+          </div>
         </div>
+        <PickupSummary booking={booking} tone="green" />
       </div>
     );
   }
@@ -111,6 +171,7 @@ export default function PaymentPanel({
             </p>
           </div>
         </div>
+        <PickupSummary booking={booking} tone="blue" />
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -167,6 +228,33 @@ export default function PaymentPanel({
             On a phone: tap above to open GPay / PhonePe / Paytm with the amount pre-filled. On a
             computer: scan the QR code with your phone&apos;s UPI app instead.
           </p>
+
+          <details className="mt-2 rounded-lg bg-muted px-2.5 py-2 text-[11px] text-muted-foreground [&_summary]:cursor-pointer">
+            <summary className="font-700 text-foreground">Got a &quot;bank limit exceeded&quot; error?</summary>
+            <div className="mt-1.5 space-y-1.5 leading-relaxed">
+              <p>
+                This is a restriction your bank/UPI app applies — Rento never sets or controls UPI
+                limits. It usually isn&apos;t about your real balance:
+              </p>
+              <ul className="list-disc space-y-1 pl-4">
+                <li>
+                  <span className="font-600 text-foreground">New payee limit (most common):</span> the
+                  first time you pay a UPI ID, banks cap total payments to it at ₹5,000 for 24 hours,
+                  even across several small payments — this resets automatically after a day.
+                </li>
+                <li>
+                  <span className="font-600 text-foreground">Per-transaction/daily limit:</span> most
+                  banks allow up to ₹1,00,000/day via UPI, but some accounts (new accounts, minors&apos;
+                  accounts) have a lower default — check or raise this in your bank&apos;s app.
+                </li>
+              </ul>
+              <p>
+                Try again with a different UPI app, a different bank account, or after 24 hours. Your
+                pickup hold stays reserved until the countdown above runs out, so there&apos;s time to
+                retry — if it&apos;s about to expire, use the contact link in Help to reach us.
+              </p>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -177,12 +265,24 @@ export default function PaymentPanel({
           <input
             value={utr}
             onChange={(e) => {
-              setUtr(e.target.value);
+              // A UTR is always plain alphanumeric (see UTR_FORMATS) — strip anything
+              // else so a pasted value with spaces/dashes (common when copying out of a
+              // bank SMS) doesn't silently fail validation later.
+              setUtr(e.target.value.replace(/[^A-Za-z0-9]/g, ""));
               setError("");
             }}
             placeholder="e.g. 302471928374"
+            maxLength={UTR_MAX_LENGTH}
+            inputMode="text"
+            autoComplete="off"
             className="mt-1 w-full rounded-xl border border-border bg-input px-3.5 py-2.5 text-sm outline-none focus:border-primary"
           />
+          <ul className="mt-1.5 space-y-0.5 text-[11px] leading-relaxed text-muted-foreground">
+            <li className="font-600">UTR length by transfer type:</li>
+            {UTR_FORMATS.map((f) => (
+              <li key={f.name}>{f.hint}</li>
+            ))}
+          </ul>
         </div>
         <div>
           <label className="flex items-center gap-1.5 text-xs font-600 text-muted-foreground">

@@ -29,6 +29,11 @@ enum PaymentStatus {
   Submitted
   Verified
   Rejected
+  /// A Pending booking whose payment hold window (see @rento/db's PENDING_HOLD_MINUTES)
+  /// elapsed with no UTR ever submitted. Terminal, like Rejected, except there is no
+  /// resubmission path — the hold is gone and the unit may already belong to someone
+  /// else, so the customer must start a fresh booking instead.
+  Expired
 }
 
 /// Owned by portalAdmin. The Rento platform's own admin accounts.
@@ -59,9 +64,25 @@ model ShopOwner {
   rejectionReason String?             @map("rejection_reason")
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  // Cached aggregate of PartnerRating rows (rentoCustomer's customers rating this shop
+  // after a Completed+Verified booking) — incremented transactionally alongside each
+  // new PartnerRating insert rather than computed live on every vehicle-listing read,
+  // since that read happens on every homepage visit. ratingSum/ratingCount rather than
+  // a running float average, so the average can always be recomputed exactly
+  // (ratingSum / ratingCount) without float drift across many increments.
+  // Display rule (see @rento/db's computeDisplayRating): below 5 real ratings, every
+  // vehicle from this shop shows a static seed (4.5, matching the value hardcoded here
+  // before this feature existed) instead of the real average, so a brand-new shop
+  // doesn't look empty/unrated.
+  ratingSum   Int @default(0) @map("rating_sum")
+  ratingCount Int @default(0) @map("rating_count")
+
   vehicles Vehicle[]
   bookings Booking[]
 
+  // Every customer-facing vehicle listing query joins through this filter
+  // (WHERE o.status = 'Approved') — see @rento/db's listActivePartnerVehiclesWithAvailability.
+  @@index([status])
   @@map("shop_owners")
 }
 
@@ -92,6 +113,12 @@ model Vehicle {
 
   bookings Booking[]
 
+  // Postgres does not automatically index foreign key columns — every join/filter on
+  // owner_id (getVehiclesForOwner, moderation, the listing join) would otherwise be a
+  // sequential scan once the table grows past a trivial size.
+  @@index([ownerId])
+  // Every customer-facing listing query filters WHERE status = 'Active'.
+  @@index([status])
   @@map("vehicles")
 }
 
@@ -106,6 +133,16 @@ model Booking {
   vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   customerName   String        @map("customer_name")
   customerPhone  String        @map("customer_phone")
+  // The rentoCustomer User.id who made this booking, set at creation time (see
+  // rentoCustomer's createPartnerBooking). Deliberately NOT a Prisma relation — same
+  // cross-app loosely-coupled reasoning as CustomerBooking.partnerBookingId below: this
+  // points into a different app's table, and it must never block or cascade against
+  // this app's own booking record. Nullable because bookings created before this
+  // column existed have no value here; CustomerRating submission falls back to a
+  // phone-number lookup against users.phone for those rows (see portalPartner's
+  // submitCustomerRating), since customerPhone was always populated from the
+  // authenticated user's own phone at booking time.
+  userId         String?       @map("user_id") @db.Uuid
   pickupDateTime DateTime      @map("pickup_datetime") @db.Timestamptz(6)
   returnDateTime DateTime      @map("return_datetime") @db.Timestamptz(6)
   quantity       Int           @default(1)
@@ -115,6 +152,15 @@ model Booking {
   utrNumber      String?       @map("utr_number")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  customerRating CustomerRating?
+
+  // Matches the exact WHERE clause of the booked-quantity aggregate (@rento/db's
+  // bookedQuantity/listActivePartnerVehiclesWithAvailability) — the single hottest
+  // query in the app, run on every vehicle-availability check and booking attempt.
+  @@index([vehicleId, status, paymentStatus])
+  // Postgres does not automatically index foreign key columns — getBookingsForOwner
+  // and platform-stats aggregates filter/join on owner_id.
+  @@index([ownerId])
   @@map("bookings")
 }
 
@@ -126,6 +172,16 @@ model User {
   gender    String?
   city      String?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Cached aggregate of CustomerRating rows (shop owners rating this customer after a
+  // Completed+Verified booking) — same ratingSum/ratingCount-over-cached-average
+  // pattern as ShopOwner above, incremented transactionally alongside each new
+  // CustomerRating insert. Shown on the customer's own rentoCustomer profile. Unlike
+  // ShopOwner/the platform rating, there is no static seed/threshold here: a customer
+  // with zero ratings simply shows "not yet rated" rather than a fabricated number —
+  // this is a personal stat, not a public trust signal that needs to avoid looking empty.
+  ratingSum   Int @default(0) @map("rating_sum")
+  ratingCount Int @default(0) @map("rating_count")
 
   bookings CustomerBooking[]
 
@@ -150,6 +206,13 @@ model CustomerBooking {
   category             String
   shopName             String        @map("shop_name")
   shopAddress          String        @map("shop_address")
+  /// Frozen at booking time (same reasoning as shopName/shopAddress below) rather than
+  /// looked up live from ShopOwner.phone — so a customer's own booking record keeps
+  /// showing the number the shop actually had at the time they booked, even if the
+  /// owner later changes it. Nullable with no backfill: only ever populated going
+  /// forward, so every booking made before this column existed correctly reads as "not
+  /// available" rather than a fabricated or misleading number.
+  shopPhone            String?       @map("shop_phone")
   shopLatitude         Float?        @map("shop_latitude")
   shopLongitude        Float?        @map("shop_longitude")
   rentalMode           String        @map("rental_mode")
@@ -174,7 +237,122 @@ model CustomerBooking {
   paymentVerifiedAt    DateTime?     @map("payment_verified_at") @db.Timestamptz(6)
   createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  // Cancellation bookkeeping. All four are set together, and only ever on the
+  // transition into Cancelled — null on every booking that was never cancelled.
+  // The refund a cancellation earns depends on *when* it happened relative to pickup
+  // (see rentoCustomer's lib/cancellationPolicy.ts), so the quote is frozen here at
+  // cancel time rather than recomputed later, when "now" no longer means anything.
+  cancelledAt          DateTime?     @map("cancelled_at") @db.Timestamptz(6)
+  /// "customer" (self-service cancel) or "shop" (the shop couldn't honour it) — the
+  /// two are refunded under different rules, so who acted has to be recorded.
+  cancelledBy          String?       @map("cancelled_by")
+  /// Percent of totalPayableOnline owed back, per the tier in force at cancelledAt.
+  refundPercent        Int?          @map("refund_percent")
+  /// Rupees owed back — the rounded, clamped figure the customer was actually quoted.
+  refundAmount         Int?          @map("refund_amount")
+
+  partnerRating  PartnerRating?
+  platformRating PlatformRating?
+
+  // getBookingsForUser filters WHERE user_id = $1 ORDER BY created_at DESC — a
+  // composite index serves both the equality filter (leftmost-prefix rule: any query
+  // filtering on user_id alone, e.g. getBookingRowForUser's id+userId lookup, still
+  // uses this index) and the sort, without a separate in-memory sort step as the table
+  // grows. Not automatically indexed since user_id is a plain column here, not a
+  // declared foreign key (see the model doc comment on why).
+  @@index([userId, createdAt])
+  // portalPartner's updateBookingStatus syncs back via WHERE partner_booking_id = $1 —
+  // every booking status change an owner makes would otherwise scan this whole table.
+  @@index([partnerBookingId])
+  // listPendingPayments (portalAdmin) filters WHERE payment_status = 'Submitted'.
+  @@index([paymentStatus])
   @@map("customer_bookings")
+}
+
+/// Owned by rentoCustomer. A customer's rating of the shop/partner for one completed
+/// booking — submitted from the confirmation page once CustomerBooking.status is
+/// Completed and paymentStatus is Verified. `customerBookingId` is a real FK (same-app,
+/// unlike the cross-app pointers elsewhere) and is @unique so a booking can only ever
+/// be rated once — that uniqueness is what makes "already rated" a DB guarantee instead
+/// of app-level bookkeeping, and what makes a double-submit safely idempotent.
+/// `ownerId` is deliberately NOT a relation: it points into portalPartner's ShopOwner
+/// table, same cross-app reasoning as CustomerBooking.partnerBookingId. Submitting this
+/// also transactionally increments ShopOwner.ratingSum/ratingCount (see rentoCustomer's
+/// submitPartnerRating) — unlike the best-effort status mirrors elsewhere, this
+/// increment happens in the SAME transaction as the insert, because the aggregate here
+/// is load-bearing (it drives the static→dynamic shop-rating switch), not just a
+/// cosmetic status copy that's fine to lose on a rare failure.
+model PartnerRating {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerBookingId String   @unique @map("customer_booking_id")
+  customerBooking   CustomerBooking @relation(fields: [customerBookingId], references: [id], onDelete: Cascade)
+  userId            String   @map("user_id") @db.Uuid
+  ownerId           String   @map("owner_id") @db.Uuid
+  stars             Int
+  comment           String?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Shop owners view their own received ratings (a fast-follow surface, not built yet)
+  // filtered by owner_id — plain column, not a declared FK, so needs its own index.
+  @@index([ownerId])
+  // rentoCustomer's getBookingsForUser/getBookingForUser filter WHERE user_id = $1 (see
+  // their doc comments — fetched by user_id directly, in parallel with the main booking
+  // query, rather than only after learning which booking ids are eligible).
+  @@index([userId])
+  @@map("partner_ratings")
+}
+
+/// Owned by rentoCustomer. A customer's rating of the Rento platform overall for one
+/// completed booking — same one-per-booking uniqueness/eligibility rules as
+/// PartnerRating, submitted alongside it but entirely independent (a customer may rate
+/// one without the other, submitted as two separate requests). No cached aggregate on
+/// any model here: the platform-wide average is computed live over this table (see
+/// @rento/db's computeDisplayRating usage in rentoCustomer's platform-rating route) —
+/// this table is orders of magnitude smaller than bookings, so a live COUNT/AVG is
+/// cheap and avoids maintaining a singleton counter row for no real benefit.
+model PlatformRating {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerBookingId String   @unique @map("customer_booking_id")
+  customerBooking   CustomerBooking @relation(fields: [customerBookingId], references: [id], onDelete: Cascade)
+  userId            String   @map("user_id") @db.Uuid
+  stars             Int
+  comment           String?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // rentoCustomer's getBookingsForUser/getBookingForUser filter WHERE user_id = $1 —
+  // see PartnerRating's identical index for why.
+  @@index([userId])
+  @@map("platform_ratings")
+}
+
+/// Owned by portalPartner. A shop owner's rating of the customer for one completed
+/// booking — the mirror of PartnerRating, submitted from the owner's bookings page.
+/// `partnerBookingId` is a real FK (same-app) and @unique for the same
+/// one-rating-per-booking guarantee. `userId` is deliberately NOT a relation: it points
+/// into rentoCustomer's User table (see portalPartner's submitCustomerRating for how
+/// it's resolved — Booking.userId when present, else a phone-number lookup for
+/// bookings created before that column existed). Submitting this transactionally
+/// increments User.ratingSum/ratingCount, same "load-bearing, not cosmetic" reasoning
+/// as PartnerRating's ShopOwner increment above.
+model CustomerRating {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partnerBookingId String   @unique @map("partner_booking_id")
+  booking          Booking  @relation(fields: [partnerBookingId], references: [id], onDelete: Cascade)
+  ownerId          String   @map("owner_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  stars            Int
+  comment          String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // rentoCustomer's profile page reads a customer's own received ratings filtered by
+  // user_id — plain column, not a declared FK, so needs its own index.
+  @@index([userId])
+  // portalPartner's getBookingsForOwner filters WHERE owner_id = $1, fetched in
+  // parallel with the main bookings query rather than only after learning which
+  // booking ids are eligible (same fix, same reasoning as rentoCustomer's
+  // getBookingsForUser — see its doc comment).
+  @@index([ownerId])
+  @@map("customer_ratings")
 }
 
 /// Owned by rentoCustomer. "Contact us" form submissions.

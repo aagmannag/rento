@@ -8,6 +8,12 @@ export interface Shop {
   /** Precise pickup coordinates set by the shop owner. Null falls back to geocoding `address`. */
   latitude?: number | null;
   longitude?: number | null;
+  /** Only ever populated on a Booking's shop (frozen at booking time) — deliberately
+   *  never set on a Vehicle's shop (the public, pre-booking listing), so a shop owner's
+   *  number isn't exposed to anonymous browsing before a customer has actually booked.
+   *  Undefined/null both mean "not available" (either this is a pre-booking listing, or
+   *  the booking predates this field — see CustomerBooking.shopPhone). */
+  phone?: string | null;
 }
 
 export interface Vehicle {
@@ -52,11 +58,19 @@ export interface User {
   gender?: Gender;
   city?: string;
   isLoggedIn: boolean;
+  /** The customer's own received rating (from shop owners) — null until they've
+   *  received at least one CustomerRating. */
+  rating?: { value: number; count: number } | null;
 }
 
 export type RentalMode = "Daily" | "Hourly";
 
-export type PaymentStatus = "Pending" | "Submitted" | "Verified" | "Rejected";
+export type PaymentStatus = "Pending" | "Submitted" | "Verified" | "Rejected" | "Expired";
+
+export interface BookingRating {
+  stars: number;
+  comment?: string | null;
+}
 
 export interface Booking {
   id: string;
@@ -87,4 +101,17 @@ export interface Booking {
   /** Set by the admin when rejecting a payment submission. */
   paymentNote?: string | null;
   createdAt: string;
+  /** Set together, and only on the transition into Cancelled — all null on a booking
+   *  that was never cancelled. The refund quote is frozen at cancel time because it
+   *  depends on how long before pickup the cancellation happened, which can't be
+   *  recovered afterwards (see lib/cancellationPolicy.ts). */
+  cancelledAt?: string | null;
+  cancelledBy?: "customer" | "shop" | null;
+  refundPercent?: number | null;
+  refundAmount?: number | null;
+  /** Only ever populated when status is Completed and paymentStatus is Verified (see
+   *  rentoCustomer's isRateable()) — undefined means "not fetched/not eligible", null
+   *  means "eligible but not yet rated", present means "already rated". */
+  partnerRating?: BookingRating | null;
+  platformRating?: BookingRating | null;
 }

@@ -8,6 +8,7 @@ const STYLES: Record<string, string> = {
   Submitted: "bg-blue-50 text-blue-700",
   Verified: "bg-green-50 text-green-700",
   Rejected: "bg-red-50 text-red-600",
+  Expired: "bg-red-50 text-red-600",
 };
 
 export default function StatusBadge({ status }: { status: string }) {

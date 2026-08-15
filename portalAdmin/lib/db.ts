@@ -1,4 +1,4 @@
-import { prisma } from "@rento/db";
+import { ADMIN_ALL_VEHICLES_CACHE_KEY, getCached, invalidateCache, invalidateVehicleListingCaches, prisma } from "@rento/db";
 import type {
   AdminUser,
   Category,
@@ -22,6 +22,37 @@ function resolvePhotoUrl(url: string | null): string | null {
   return `${PARTNER_PORTAL_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
+// Every query in this file below is read by every admin's dashboard on every
+// DASHBOARD_POLL_INTERVAL_MS tick (see lib/hooks.ts) — none of it is per-admin data (any
+// admin sees the exact same stats/owner list/vehicle list), so it's a direct fit for the
+// same shared getCached()/invalidateCache() pattern @rento/db already uses for the
+// customer-facing vehicle listing. Measured via curl against a real authenticated
+// session before this existed: ~220-770ms on EVERY call (not just the first), because
+// none of these four queries had any caching at all — under real polling traffic that's
+// the same "every API call is slow" experience the vehicle listing had before its own
+// cache existed.
+const ADMIN_STATS_CACHE_KEY = "cache:v1:admin:stats";
+const adminShopOwnersCacheKey = (status?: OwnerApprovalStatus) => `cache:v1:admin:shop-owners:${status ?? "all"}`;
+// ADMIN_ALL_VEHICLES_CACHE_KEY itself lives in @rento/db's vehicles.ts, not here — see
+// its own doc comment for why (invalidation has to happen from that shared write path).
+const ADMIN_CACHE_TTL_SECONDS = 10;
+
+// Every possible listShopOwners() cache key — invalidated together on any owner status
+// change, since which key(s) become stale depends on both the old and new status (e.g.
+// approving a Pending owner invalidates the "Pending" list, the "Approved" list, AND the
+// unfiltered "all" list) and there's no cheaper way to know that at the call site than
+// just clearing every variant.
+const ALL_ADMIN_SHOP_OWNER_STATUSES: (OwnerApprovalStatus | undefined)[] = [
+  undefined,
+  "Pending",
+  "Approved",
+  "Rejected",
+  "Suspended",
+];
+function invalidateAdminShopOwnersCache(): void {
+  void invalidateCache(ALL_ADMIN_SHOP_OWNER_STATUSES.map(adminShopOwnersCacheKey));
+}
+
 // Prisma returns DateTime columns as real `Date` objects; every app-facing type in
 // ./types.ts declares `createdAt: string` (an ISO string, same as what these endpoints
 // have always sent over the wire as JSON). These mappers do that conversion once,
@@ -34,6 +65,29 @@ function toAdmin<T extends { createdAt: Date }>(row: T): Omit<T, "createdAt"> & 
 function toOwner<T extends { createdAt: Date }>(row: T): Omit<T, "createdAt"> & { createdAt: string } {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
+
+// Every field on ShopOwner (./types.ts) except passwordHash — portalPartner owns shop
+// owner password verification, not this app, so portalAdmin has no legitimate reason
+// to ever fetch a shop owner's password hash at all. Explicit select (rather than
+// relying on every caller to strip it after the fact) means it never leaves Neon in
+// the first place: the declared ShopOwner type already excludes it, but nothing
+// enforced that at the JSON-serialization boundary until this was applied everywhere
+// a ShopOwner row is read below.
+const SHOP_OWNER_SELECT = {
+  id: true,
+  ownerName: true,
+  shopName: true,
+  email: true,
+  phone: true,
+  city: true,
+  address: true,
+  pincode: true,
+  latitude: true,
+  longitude: true,
+  status: true,
+  rejectionReason: true,
+  createdAt: true,
+} as const;
 
 // ---------- Admin users ----------
 
@@ -94,15 +148,18 @@ export async function updateAdminName(id: string, name: string): Promise<AdminUs
 // ---------- Shop owner review ----------
 
 export async function listShopOwners(status?: OwnerApprovalStatus): Promise<ShopOwner[]> {
-  const owners = await prisma.shopOwner.findMany({
-    where: status ? { status } : undefined,
-    orderBy: { createdAt: "desc" },
+  return getCached(adminShopOwnersCacheKey(status), ADMIN_CACHE_TTL_SECONDS, async () => {
+    const owners = await prisma.shopOwner.findMany({
+      where: status ? { status } : undefined,
+      orderBy: { createdAt: "desc" },
+      select: SHOP_OWNER_SELECT,
+    });
+    return owners.map(toOwner);
   });
-  return owners.map(toOwner);
 }
 
 export async function getShopOwnerDetail(id: string): Promise<ShopOwnerDetail | null> {
-  const ownerRow = await prisma.shopOwner.findUnique({ where: { id } });
+  const ownerRow = await prisma.shopOwner.findUnique({ where: { id }, select: SHOP_OWNER_SELECT });
   if (!ownerRow) return null;
   const owner = toOwner(ownerRow);
 
@@ -144,13 +201,28 @@ async function setOwnerStatus(
   rejectionReason: string | null = null
 ): Promise<ShopOwner | null> {
   const updated = await prisma.$transaction(async (tx) => {
-    const existing = await tx.shopOwner.findUnique({ where: { id } });
+    // Only the status is actually needed to decide whether this transition is valid.
+    const existing = await tx.shopOwner.findUnique({ where: { id }, select: { status: true } });
     if (!existing || !fromStatuses.includes(existing.status)) return null;
     return tx.shopOwner.update({
       where: { id },
       data: { status: toStatus, rejectionReason },
+      select: SHOP_OWNER_SELECT,
     });
   });
+  if (updated) {
+    // The active-listing query joins on `o.status = 'Approved'` — every status
+    // transition here (Approved <-> Rejected/Suspended/Pending) can add or remove this
+    // owner's entire catalog from what customers see, so the public listing cache (and
+    // this owner's own dashboard) must not keep serving the pre-transition view for the
+    // rest of the TTL.
+    invalidateVehicleListingCaches(id);
+    // This owner just moved between status buckets (e.g. Pending -> Approved) and the
+    // owner-count breakdown in getPlatformStats() changed too — both this app's own
+    // dashboard queries need to reflect that immediately, not after ADMIN_CACHE_TTL_SECONDS.
+    invalidateAdminShopOwnersCache();
+    void invalidateCache([ADMIN_STATS_CACHE_KEY]);
+  }
   return updated ? toOwner(updated) : null;
 }
 
@@ -177,7 +249,11 @@ export async function updateOwnerLocation(
   longitude: number | null
 ): Promise<ShopOwner | null> {
   try {
-    const owner = await prisma.shopOwner.update({ where: { id }, data: { latitude, longitude } });
+    const owner = await prisma.shopOwner.update({
+      where: { id },
+      data: { latitude, longitude },
+      select: SHOP_OWNER_SELECT,
+    });
     return toOwner(owner);
   } catch {
     return null;
@@ -190,57 +266,78 @@ export async function reinstateOwner(id: string): Promise<ShopOwner | null> {
 
 // ---------- Platform stats ----------
 
+// totalBookings changes on every booking made across the platform (rentoCustomer,
+// high-frequency, cross-app) — wiring real-time invalidation for that specific field
+// would mean coupling every booking-creation path in a different app to this app's
+// dashboard cache, for a number that's purely informational here (not read back into any
+// decision this app makes). ADMIN_CACHE_TTL_SECONDS alone is the deliberate trade-off,
+// same reasoning as the platform-wide rating stat in rentoCustomer.
 export async function getPlatformStats(): Promise<PlatformStats> {
-  const [ownerStats, vehicleStats, totalBookings] = await Promise.all([
-    prisma.shopOwner.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.vehicle.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.booking.count(),
-  ]);
+  return getCached(ADMIN_STATS_CACHE_KEY, ADMIN_CACHE_TTL_SECONDS, async () => {
+    const [ownerStats, vehicleStats, totalBookings] = await Promise.all([
+      prisma.shopOwner.groupBy({ by: ["status"], _count: { _all: true } }),
+      prisma.vehicle.groupBy({ by: ["status"], _count: { _all: true } }),
+      prisma.booking.count(),
+    ]);
 
-  const ownersByStatus: Record<string, number> = {};
-  for (const row of ownerStats) ownersByStatus[row.status] = row._count._all;
+    const ownersByStatus: Record<string, number> = {};
+    for (const row of ownerStats) ownersByStatus[row.status] = row._count._all;
 
-  const vehiclesByStatus: Record<string, number> = {};
-  for (const row of vehicleStats) vehiclesByStatus[row.status] = row._count._all;
+    const vehiclesByStatus: Record<string, number> = {};
+    for (const row of vehicleStats) vehiclesByStatus[row.status] = row._count._all;
 
-  return {
-    totalOwners: Object.values(ownersByStatus).reduce((a, b) => a + b, 0),
-    pendingOwners: ownersByStatus["Pending"] ?? 0,
-    approvedOwners: ownersByStatus["Approved"] ?? 0,
-    rejectedOwners: ownersByStatus["Rejected"] ?? 0,
-    suspendedOwners: ownersByStatus["Suspended"] ?? 0,
-    totalVehicles: Object.values(vehiclesByStatus).reduce((a, b) => a + b, 0),
-    activeVehicles: vehiclesByStatus["Active"] ?? 0,
-    totalBookings,
-  };
+    return {
+      totalOwners: Object.values(ownersByStatus).reduce((a, b) => a + b, 0),
+      pendingOwners: ownersByStatus["Pending"] ?? 0,
+      approvedOwners: ownersByStatus["Approved"] ?? 0,
+      rejectedOwners: ownersByStatus["Rejected"] ?? 0,
+      suspendedOwners: ownersByStatus["Suspended"] ?? 0,
+      totalVehicles: Object.values(vehiclesByStatus).reduce((a, b) => a + b, 0),
+      activeVehicles: vehiclesByStatus["Active"] ?? 0,
+      totalBookings,
+    };
+  });
 }
 
 // ---------- Vehicle moderation ----------
 
 export async function listAllVehicles(): Promise<Vehicle[]> {
-  const vehicles = await prisma.vehicle.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { owner: { select: { ownerName: true, shopName: true, status: true } } },
+  return getCached(ADMIN_ALL_VEHICLES_CACHE_KEY, ADMIN_CACHE_TTL_SECONDS, async () => {
+    const vehicles = await prisma.vehicle.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { owner: { select: { ownerName: true, shopName: true, status: true } } },
+    });
+    return vehicles.map((v) => ({
+      id: v.id,
+      ownerId: v.ownerId,
+      ownerName: v.owner.ownerName,
+      shopName: v.owner.shopName,
+      ownerStatus: v.owner.status as OwnerApprovalStatus,
+      category: v.category as Category,
+      name: v.name,
+      brand: v.brand,
+      photoUrl: resolvePhotoUrl(v.photoUrl),
+      pricePerDay: v.pricePerDay,
+      stock: v.stock,
+      city: v.city,
+      status: v.status as VehicleStatus,
+      createdAt: v.createdAt.toISOString(),
+    }));
   });
-  return vehicles.map((v) => ({
-    id: v.id,
-    ownerId: v.ownerId,
-    ownerName: v.owner.ownerName,
-    shopName: v.owner.shopName,
-    ownerStatus: v.owner.status as OwnerApprovalStatus,
-    category: v.category as Category,
-    name: v.name,
-    brand: v.brand,
-    photoUrl: resolvePhotoUrl(v.photoUrl),
-    pricePerDay: v.pricePerDay,
-    stock: v.stock,
-    city: v.city,
-    status: v.status as VehicleStatus,
-    createdAt: v.createdAt.toISOString(),
-  }));
 }
 
 export async function setVehicleStatus(id: string, status: VehicleStatus): Promise<boolean> {
   const result = await prisma.vehicle.updateMany({ where: { id }, data: { status } });
-  return result.count > 0;
+  const updated = result.count > 0;
+  if (updated) {
+    // Active/Inactive gates whether this vehicle appears in the customer-facing listing
+    // at all, and status also feeds getVehicleAvailabilityRow's own Active+Approved
+    // gate. No ownerId on hand here without an extra lookup (this moderation action is
+    // rare and admin-only, not worth a query just to also clear that owner's own
+    // dashboard cache a few seconds sooner) — the global active-listing key and this one
+    // vehicle's availability entry are the ones that actually need to be fresh.
+    invalidateVehicleListingCaches(undefined, id);
+    void invalidateCache([ADMIN_ALL_VEHICLES_CACHE_KEY, ADMIN_STATS_CACHE_KEY]);
+  }
+  return updated;
 }

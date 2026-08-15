@@ -6,6 +6,7 @@ import Link from "next/link";
 import { MapPin, Fuel, Zap, Users, ArrowRight } from "lucide-react";
 import type { Vehicle } from "@/lib/types";
 import Stars from "./Stars";
+import { CategoryPhotoPlaceholder } from "./CategoryIcon";
 import { useApp } from "@/app/providers";
 
 export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
@@ -13,7 +14,7 @@ export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
   const availableUnits = getAvailableStock(vehicle);
   const soldOut = availableUnits <= 0;
   // A photo can fail to load for reasons outside our control — an expired external
-  // link, a network hiccup, a misconfigured host — falling back to the category emoji
+  // link, a network hiccup, a misconfigured host — falling back to the category icon
   // keeps the card looking intentional instead of showing a broken-image icon forever.
   const [photoBroken, setPhotoBroken] = useState(false);
 
@@ -24,7 +25,7 @@ export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
         soldOut ? "opacity-75" : ""
       }`}
     >
-      <div className="relative flex h-44 items-center justify-center bg-secondary text-6xl sm:h-48 sm:text-7xl">
+      <div className="relative flex h-44 items-center justify-center bg-secondary sm:h-48">
         {vehicle.photo && !photoBroken ? (
           <Image
             src={vehicle.photo}
@@ -35,7 +36,7 @@ export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
             onError={() => setPhotoBroken(true)}
           />
         ) : (
-          vehicle.image
+          <CategoryPhotoPlaceholder category={vehicle.category} size={64} />
         )}
         <span
           className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-700 text-white ${

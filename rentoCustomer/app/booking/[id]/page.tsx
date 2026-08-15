@@ -8,6 +8,8 @@ import { MapPin, CreditCard, Store, CheckCircle2, Minus, Plus } from "lucide-rea
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import PickupLocationMap from "@/components/PickupLocationMap";
+import { CategoryPhotoPlaceholder } from "@/components/CategoryIcon";
+import { FREE_CANCELLATION_HOURS } from "@/lib/cancellationPolicy";
 import { useApp } from "../../providers";
 import { useToast } from "@/components/Toast";
 import type { Booking, RentalMode } from "@/lib/types";
@@ -61,6 +63,13 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   const [quantity, setQuantity] = useState(1);
   const [dateError, setDateError] = useState("");
   const [promptedLogin, setPromptedLogin] = useState(false);
+  // Both the desktop and mobile "Confirm Booking" buttons below call the same handler
+  // without this guard, a double-click/double-tap (very easy to trigger while the first
+  // request is still in flight, especially on a slow connection) fires
+  // refreshVehicleAvailability + addBooking twice — hitting the API twice for no reason,
+  // and, if enough stock happened to be available for both, could book 2 separate
+  // bookings when the customer only meant to make 1.
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     if (!user?.isLoggedIn && vehicle && !promptedLogin) {
@@ -163,62 +172,68 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     rentalMode === "Daily" ? `${days || 1} day${(days || 1) > 1 ? "s" : ""}` : `${hours} hour${hours > 1 ? "s" : ""}`;
 
   async function handleConfirm() {
+    if (isConfirming) return;
     if (rentalMode === "Daily" && !validRange) {
       setDateError("Return date/time must be after pickup date/time");
       return;
     }
-    // Final recheck at the moment of confirming — a live server query, not the possibly
-    // stale merged vehicle list, so it reflects bookings made moments ago from any other
-    // browser, device, or customer. The API also enforces this independently on submit,
-    // so this is a UX nicety rather than the only thing standing between two customers
-    // booking the same last unit.
-    const liveAvailable = await refreshVehicleAvailability(vehicle!.id);
-    const freshAvailable = liveAvailable ?? getAvailableStock(vehicle!);
-    if (freshAvailable < quantity) {
-      showToast(
-        freshAvailable <= 0
-          ? "Sorry, someone just booked the last unit. Please pick another vehicle."
-          : `Only ${freshAvailable} unit${freshAvailable > 1 ? "s" : ""} left now — please adjust the quantity.`,
-        "error"
-      );
-      if (freshAvailable <= 0) {
-        router.push(`/vehicles/${vehicle!.id}`);
-      } else {
-        setQuantity(freshAvailable);
-      }
-      return;
-    }
-    const booking: Booking = {
-      id: generateBookingId(),
-      vehicleId: vehicle!.id,
-      vehicleName: vehicle!.name,
-      vehicleImage: vehicle!.image,
-      vehiclePhoto: vehicle!.photo,
-      city: vehicle!.city,
-      category: vehicle!.category,
-      shop: vehicle!.shop,
-      rentalMode,
-      pickupDateTime: pickupDateTime.toISOString(),
-      returnDateTime: returnDateTime.toISOString(),
-      days: rentalMode === "Daily" ? days : 0,
-      hours: rentalMode === "Hourly" ? hours : 0,
-      quantity,
-      pricePerDay: vehicle!.pricePerDay,
-      pricePerHour: vehicle!.pricePerHour,
-      rentalCost,
-      securityDeposit,
-      totalPayableOnline: totalOnline,
-      totalPayableAtShop: totalAtShop,
-      status: "Upcoming",
-      paymentStatus: "Pending",
-      createdAt: new Date().toISOString(),
-    };
+    setIsConfirming(true);
     try {
-      await addBooking(booking);
-      router.push(`/confirmation/${booking.id}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't save your booking. Please try again.", "error");
-      void refreshVehicleAvailability(vehicle!.id);
+      // Final recheck at the moment of confirming — a live server query, not the possibly
+      // stale merged vehicle list, so it reflects bookings made moments ago from any other
+      // browser, device, or customer. The API also enforces this independently on submit,
+      // so this is a UX nicety rather than the only thing standing between two customers
+      // booking the same last unit.
+      const liveAvailable = await refreshVehicleAvailability(vehicle!.id);
+      const freshAvailable = liveAvailable ?? getAvailableStock(vehicle!);
+      if (freshAvailable < quantity) {
+        showToast(
+          freshAvailable <= 0
+            ? "Sorry, someone just booked the last unit. Please pick another vehicle."
+            : `Only ${freshAvailable} unit${freshAvailable > 1 ? "s" : ""} left now — please adjust the quantity.`,
+          "error"
+        );
+        if (freshAvailable <= 0) {
+          router.push(`/vehicles/${vehicle!.id}`);
+        } else {
+          setQuantity(freshAvailable);
+        }
+        return;
+      }
+      const booking: Booking = {
+        id: generateBookingId(),
+        vehicleId: vehicle!.id,
+        vehicleName: vehicle!.name,
+        vehicleImage: vehicle!.image,
+        vehiclePhoto: vehicle!.photo,
+        city: vehicle!.city,
+        category: vehicle!.category,
+        shop: vehicle!.shop,
+        rentalMode,
+        pickupDateTime: pickupDateTime.toISOString(),
+        returnDateTime: returnDateTime.toISOString(),
+        days: rentalMode === "Daily" ? days : 0,
+        hours: rentalMode === "Hourly" ? hours : 0,
+        quantity,
+        pricePerDay: vehicle!.pricePerDay,
+        pricePerHour: vehicle!.pricePerHour,
+        rentalCost,
+        securityDeposit,
+        totalPayableOnline: totalOnline,
+        totalPayableAtShop: totalAtShop,
+        status: "Upcoming",
+        paymentStatus: "Pending",
+        createdAt: new Date().toISOString(),
+      };
+      try {
+        await addBooking(booking);
+        router.push(`/confirmation/${booking.id}`);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Couldn't save your booking. Please try again.", "error");
+        void refreshVehicleAvailability(vehicle!.id);
+      }
+    } finally {
+      setIsConfirming(false);
     }
   }
 
@@ -247,11 +262,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 )}
               </div>
               <div className="flex items-start gap-3">
-                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white text-3xl">
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
                   {vehicle.photo ? (
                     <Image src={vehicle.photo} alt={vehicle.name} fill sizes="64px" className="object-cover" />
                   ) : (
-                    vehicle.image
+                    <CategoryPhotoPlaceholder category={vehicle.category} size={32} />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -544,7 +559,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 {[
                   "Fuel not included — vehicle provided with full tank",
                   "Helmet provided free of cost",
-                  "Free cancellation up to 24 hrs before pickup",
+                  `Free cancellation up to ${FREE_CANCELLATION_HOURS} hrs before pickup`,
                 ].map((line) => (
                   <li key={line} className="flex items-start gap-1.5">
                     <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-green-600" />
@@ -553,8 +568,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 ))}
               </ul>
 
-              <button onClick={handleConfirm} className="btn-primary mt-5 hidden w-full py-3.5 text-sm lg:block">
-                Confirm Booking{quantity > 1 ? ` (${quantity} vehicles)` : ""} · Pay ₹{totalOnline || vehicle.pricePerDay} Online
+              <button
+                onClick={handleConfirm}
+                disabled={isConfirming}
+                className="btn-primary mt-5 hidden w-full py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 lg:block"
+              >
+                {isConfirming
+                  ? "Confirming…"
+                  : `Confirm Booking${quantity > 1 ? ` (${quantity} vehicles)` : ""} · Pay ₹${totalOnline || vehicle.pricePerDay} Online`}
               </button>
               <p className="mt-2 hidden text-center text-[11px] text-muted-foreground lg:block">
                 By confirming, you agree to Rento&apos;s Rental Terms
@@ -565,8 +586,14 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       </main>
 
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-card px-4 py-3 lg:hidden">
-        <button onClick={handleConfirm} className="btn-primary w-full py-3.5 text-sm">
-          Confirm Booking{quantity > 1 ? ` (${quantity} vehicles)` : ""} · Pay ₹{totalOnline || vehicle.pricePerDay} Online
+        <button
+          onClick={handleConfirm}
+          disabled={isConfirming}
+          className="btn-primary w-full py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isConfirming
+            ? "Confirming…"
+            : `Confirm Booking${quantity > 1 ? ` (${quantity} vehicles)` : ""} · Pay ₹${totalOnline || vehicle.pricePerDay} Online`}
         </button>
       </div>
 

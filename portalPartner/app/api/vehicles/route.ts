@@ -1,17 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MIN_ONLINE_PAYMENT_RUPEES } from "@rento/db";
 import { readSessionFromCookies } from "@/lib/session";
 import { createVehicle, getVehiclesForOwner } from "@/lib/db";
 import { validatePhotoUrls } from "@/lib/vehiclePhotos";
+import { RequestTimer } from "@/lib/perf";
 import type { Category } from "@/lib/types";
 
 const CATEGORIES: Category[] = ["Scooty", "Bike", "Car"];
 
+// Owner's own vehicle list — hit on every dashboard load/poll, same threshold
+// reasoning as the bookings route.
+const SLOW_REQUEST_THRESHOLD_MS = 300;
+
 export async function GET() {
+  const timer = new RequestTimer("GET /api/vehicles");
   const session = readSessionFromCookies();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  timer.mark("auth");
 
   const vehicles = await getVehiclesForOwner(session.ownerId);
-  return NextResponse.json({ vehicles });
+  timer.mark("db");
+  const response = NextResponse.json({ vehicles });
+  timer.total(SLOW_REQUEST_THRESHOLD_MS);
+  return response;
 }
 
 export async function POST(req: NextRequest) {
@@ -42,11 +53,22 @@ export async function POST(req: NextRequest) {
   }
   if (name.length < 2) return NextResponse.json({ error: "Enter the vehicle model name" }, { status: 400 });
   if (brand.length < 2) return NextResponse.json({ error: "Enter the vehicle brand" }, { status: 400 });
-  if (!Number.isFinite(pricePerDay) || pricePerDay <= 0) {
-    return NextResponse.json({ error: "Enter a valid daily price" }, { status: 400 });
+  // Below MIN_ONLINE_PAYMENT_RUPEES, a customer booking just this vehicle for a single
+  // day/hour would be sent to pay a UPI amount small enough that banks commonly flag it
+  // as a fraud-probe pattern and silently reject it (see MIN_ONLINE_PAYMENT_RUPEES's own
+  // doc comment) — the booking would look broken to a genuine customer, not caused by
+  // anything wrong with their payment.
+  if (!Number.isFinite(pricePerDay) || pricePerDay < MIN_ONLINE_PAYMENT_RUPEES) {
+    return NextResponse.json(
+      { error: `Enter a daily price of at least ₹${MIN_ONLINE_PAYMENT_RUPEES}` },
+      { status: 400 }
+    );
   }
-  if (!Number.isFinite(pricePerHour) || pricePerHour <= 0) {
-    return NextResponse.json({ error: "Enter a valid hourly price" }, { status: 400 });
+  if (!Number.isFinite(pricePerHour) || pricePerHour < MIN_ONLINE_PAYMENT_RUPEES) {
+    return NextResponse.json(
+      { error: `Enter an hourly price of at least ₹${MIN_ONLINE_PAYMENT_RUPEES}` },
+      { status: 400 }
+    );
   }
   if (!Number.isFinite(securityDeposit) || securityDeposit < 0) {
     return NextResponse.json({ error: "Enter a valid security deposit" }, { status: 400 });

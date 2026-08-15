@@ -83,4 +83,10 @@ export interface PendingPayment {
   paymentScreenshotUrl: string | null;
   paymentSubmittedAt: string | null;
   createdAt: string;
+  /** A customer can cancel after submitting payment but before an admin gets to it.
+   *  The row stays in this queue on purpose — the money was still sent and has to be
+   *  confirmed before it can be refunded — but it must not be mistaken for a live
+   *  booking, so the queue shows what happened to it. */
+  bookingStatus: string;
+  refundAmount: number | null;
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MIN_ONLINE_PAYMENT_RUPEES } from "@rento/db";
 import { readSessionFromCookies } from "@/lib/session";
 import { deleteVehicle, getVehicleForOwner, updateVehicle } from "@/lib/db";
 import { validatePhotoUrls } from "@/lib/vehiclePhotos";
@@ -26,8 +27,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.name !== undefined) patch.name = String(body.name).trim();
   if (body.brand !== undefined) patch.brand = String(body.brand).trim();
   if (body.engineLabel !== undefined) patch.engineLabel = String(body.engineLabel).trim();
-  if (body.pricePerDay !== undefined) patch.pricePerDay = Math.round(Number(body.pricePerDay));
-  if (body.pricePerHour !== undefined) patch.pricePerHour = Math.round(Number(body.pricePerHour));
+  // Same floor as the create route (POST /api/vehicles) — see MIN_ONLINE_PAYMENT_RUPEES's
+  // own doc comment for why. This route previously accepted any finite number here,
+  // including 0/negative/near-zero prices with no validation at all.
+  if (body.pricePerDay !== undefined) {
+    const value = Math.round(Number(body.pricePerDay));
+    if (!Number.isFinite(value) || value < MIN_ONLINE_PAYMENT_RUPEES) {
+      return NextResponse.json(
+        { error: `Enter a daily price of at least ₹${MIN_ONLINE_PAYMENT_RUPEES}` },
+        { status: 400 }
+      );
+    }
+    patch.pricePerDay = value;
+  }
+  if (body.pricePerHour !== undefined) {
+    const value = Math.round(Number(body.pricePerHour));
+    if (!Number.isFinite(value) || value < MIN_ONLINE_PAYMENT_RUPEES) {
+      return NextResponse.json(
+        { error: `Enter an hourly price of at least ₹${MIN_ONLINE_PAYMENT_RUPEES}` },
+        { status: 400 }
+      );
+    }
+    patch.pricePerHour = value;
+  }
   if (body.securityDeposit !== undefined) patch.securityDeposit = Math.round(Number(body.securityDeposit));
   if (body.stock !== undefined) patch.stock = Math.round(Number(body.stock));
   if (body.fuel !== undefined) patch.fuel = String(body.fuel);

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Fuel, MapPin, Pencil, Trash2, Users, Zap } from "lucide-react";
 import type { Vehicle } from "@/lib/types";
 import StatusBadge from "./StatusBadge";
+import { CategoryPhotoPlaceholder } from "./CategoryIcon";
 
 export default function OwnerVehicleCard({
   vehicle,
@@ -19,14 +20,14 @@ export default function OwnerVehicleCard({
   busy?: boolean;
 }) {
   // A photo can fail to load for reasons outside our control — an expired external
-  // link, a network hiccup — falling back to the plain background keeps the card
+  // link, a network hiccup — falling back to the category icon keeps the card
   // looking intentional instead of showing a broken-image icon forever.
   const [photoBroken, setPhotoBroken] = useState(false);
 
   return (
     <div className="card-hover flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
       <div className="relative h-40 bg-secondary">
-        {vehicle.photoUrl && !photoBroken && (
+        {vehicle.photoUrl && !photoBroken ? (
           <Image
             src={vehicle.photoUrl}
             alt={vehicle.name}
@@ -35,6 +36,8 @@ export default function OwnerVehicleCard({
             className="object-cover"
             onError={() => setPhotoBroken(true)}
           />
+        ) : (
+          <CategoryPhotoPlaceholder category={vehicle.category} size={48} />
         )}
         <div className="absolute left-3 top-3">
           <StatusBadge status={vehicle.status} />

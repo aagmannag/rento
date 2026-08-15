@@ -9,12 +9,18 @@ export function isCityLive(city: City): boolean {
   return LIVE_CITIES.includes(city);
 }
 
-export const CATEGORIES: { key: Category; label: string; emoji: string; blurb: string }[] = [
-  { key: "Scooty", label: "Scooty", emoji: "🛵", blurb: "Easy to ride, perfect for the city" },
-  { key: "Bike", label: "Bike", emoji: "🏍️", blurb: "For longer rides & highways" },
-  { key: "Car", label: "Car", emoji: "🚗", blurb: "Comfortable rides for groups & families" },
+// Icons for these live in components/CategoryIcon.tsx — the single source of truth for
+// category iconography across the app.
+export const CATEGORIES: { key: Category; label: string; blurb: string }[] = [
+  { key: "Scooty", label: "Scooty", blurb: "Easy to ride, perfect for the city" },
+  { key: "Bike", label: "Bike", blurb: "For longer rides & highways" },
+  { key: "Car", label: "Car", blurb: "Comfortable rides for groups & families" },
 ];
 
+/** Legacy: the only remaining consumer is the `vehicleImage` string persisted on a
+ *  booking row. Nothing renders it any more — every surface draws CategoryIcon from
+ *  the vehicle's/booking's category instead, so old rows with emoji still display
+ *  correctly. */
 export const CATEGORY_EMOJI: Record<Category, string> = {
   Scooty: "🛵",
   Bike: "🏍️",

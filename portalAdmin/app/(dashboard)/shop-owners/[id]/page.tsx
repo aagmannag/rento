@@ -154,7 +154,13 @@ export default function ShopOwnerDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save location");
-      setOwner(data.owner);
+      // /api/shop-owners/[id]/location returns the base ShopOwner fields only (see
+      // updateOwnerLocation) — it doesn't re-fetch vehicles/totalBookings/totalEarnings,
+      // which only this detail page's own ShopOwnerDetail carries. Merging into the
+      // existing state (rather than replacing it wholesale with setOwner(data.owner))
+      // keeps those fields intact instead of wiping them to undefined and crashing the
+      // very next render on owner.vehicles.length.
+      setOwner((prev) => (prev ? { ...prev, ...data.owner } : prev));
       showToast("Pickup location saved", "success");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to save location", "error");
@@ -173,7 +179,8 @@ export default function ShopOwnerDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to clear location");
-      setOwner(data.owner);
+      // Same partial-response merge as handleSaveLocation above — see its comment.
+      setOwner((prev) => (prev ? { ...prev, ...data.owner } : prev));
       setPinLat(null);
       setPinLng(null);
       setPickedAddress(null);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { findOrCreateUserByPhone } from "@/lib/db";
 import { signSession, setSessionCookie } from "@/lib/session";
 import { getClientIp, rateLimit } from "@/lib/rateLimit";
+import { RequestTimer } from "@/lib/perf";
 
 function hasFirebaseAdminCredentials() {
   return Boolean(
@@ -17,9 +18,11 @@ function isLocalRequest(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const timer = new RequestTimer("POST /api/login");
   try {
     const ip = getClientIp(request);
     const limit = rateLimit(`login:${ip}`, 20, 10 * 60 * 1000);
+    timer.mark("rate limit check");
     if (!limit.allowed) {
       return NextResponse.json(
         { error: "Too many login attempts. Please wait a few minutes and try again." },
@@ -42,6 +45,10 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         console.warn("Firebase Admin token verification failed, falling back to provided phone number:", err);
       }
+      // Logged separately from the DB lookup below on purpose — this is a call to
+      // Google's servers, not our database, and is almost always the dominant cost of
+      // this endpoint. Slow here means slow Firebase/network, not a database problem.
+      timer.mark("firebase token verification (external)");
     }
 
     // Fallback if Firebase Admin SDK is not configured or token verification fell back
@@ -69,9 +76,12 @@ export async function POST(request: NextRequest) {
         city: null,
       };
     }
+    timer.mark("user lookup/create");
 
     const token = signSession({ userId: dbUser.id, phone: dbUser.phone });
     setSessionCookie(token);
+    timer.mark("session sign + cookie");
+    timer.total();
 
     return NextResponse.json({
       user: {

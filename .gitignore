@@ -5,3 +5,9 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# npm workspaces hoist most shared dependencies to this root node_modules/ — none of the
+# per-app .gitignores above cover it, since it's a sibling of those app directories, not
+# inside them. Without this, `npm install` populates hundreds of MB here that git would
+# otherwise track from the repo root.
+node_modules/

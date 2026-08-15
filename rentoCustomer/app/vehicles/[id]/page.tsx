@@ -52,7 +52,7 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
       <main className="mx-auto w-full max-w-screen-xl flex-1 px-4 pb-24 sm:px-6 lg:pb-8 lg:px-8">
         <div className="mt-6 grid gap-8 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <VehicleGallery photos={vehicle.photos} name={vehicle.name} fallbackEmoji={vehicle.image} />
+            <VehicleGallery photos={vehicle.photos} name={vehicle.name} category={vehicle.category} />
           </div>
 
           <div className="lg:col-span-2">

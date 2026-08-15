@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "Can I cancel a booking?",
-    a: "Yes — cancellations made at least 24 hours before your pickup time are fully refunded. See our Cancellation Policy page for the full details.",
+    a: "Yes. Cancel 6 hours or more before your pickup time and the rental cost paid online is refunded in full. Inside that window the refund tapers — 80% from 3 to 6 hours before pickup, 50% from 1 to 3 hours before, and nothing in the final hour. See our Cancellation Policy page for the full details.",
   },
   {
     q: "What happens if I return the vehicle late?",

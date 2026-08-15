@@ -3,22 +3,23 @@
 import { useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CategoryPhotoPlaceholder } from "./CategoryIcon";
 
 /** Main image + thumbnail strip for a vehicle's photo gallery. Falls back to the
- *  category emoji when there are zero photos (legacy listings predating multi-photo
+ *  category icon when there are zero photos (legacy listings predating multi-photo
  *  support) — never a broken image. */
 export default function VehicleGallery({
   photos,
   name,
-  fallbackEmoji,
+  category,
 }: {
   photos: string[];
   name: string;
-  fallbackEmoji: string;
+  category: string | null | undefined;
 }) {
   const [index, setIndex] = useState(0);
   // A photo can fail to load for reasons outside our control — an expired external
-  // link, a network hiccup, a misconfigured host — falling back to the category emoji
+  // link, a network hiccup, a misconfigured host — falling back to the category icon
   // keeps the gallery looking intentional instead of showing a broken-image icon.
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
   const markBroken = (url: string) =>
@@ -31,7 +32,7 @@ export default function VehicleGallery({
 
   return (
     <div>
-      <div className="relative flex h-64 items-center justify-center overflow-hidden rounded-2xl bg-secondary text-8xl sm:h-80">
+      <div className="relative flex h-64 items-center justify-center overflow-hidden rounded-2xl bg-secondary sm:h-80">
         {hasPhotos && !activeBroken && activeUrl ? (
           <>
             {/* Blurred, scaled-up copy of the same photo fills the frame with no hard
@@ -58,7 +59,7 @@ export default function VehicleGallery({
             />
           </>
         ) : (
-          fallbackEmoji
+          <CategoryPhotoPlaceholder category={category} size={96} />
         )}
 
         {photos.length > 1 && (
@@ -94,12 +95,12 @@ export default function VehicleGallery({
               type="button"
               onClick={() => setIndex(i)}
               aria-label={`View photo ${i + 1}`}
-              className={`relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 bg-secondary text-xl transition ${
+              className={`relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 bg-secondary transition ${
                 i === active ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"
               }`}
             >
               {brokenUrls.has(url) ? (
-                fallbackEmoji
+                <CategoryPhotoPlaceholder category={category} size={24} />
               ) : (
                 <Image
                   src={url}

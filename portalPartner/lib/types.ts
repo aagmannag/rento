@@ -11,10 +11,12 @@ export type City = (typeof CITIES)[number];
 
 export type Category = "Scooty" | "Bike" | "Car";
 
-export const CATEGORIES: { key: Category; label: string; emoji: string }[] = [
-  { key: "Scooty", label: "Scooty", emoji: "🛵" },
-  { key: "Bike", label: "Bike", emoji: "🏍️" },
-  { key: "Car", label: "Car", emoji: "🚗" },
+// Icons for these live in components/CategoryIcon.tsx — the single source of truth for
+// category iconography across the portal.
+export const CATEGORIES: { key: Category; label: string }[] = [
+  { key: "Scooty", label: "Scooty" },
+  { key: "Bike", label: "Bike" },
+  { key: "Car", label: "Car" },
 ];
 
 export type FuelType = "Petrol" | "Diesel" | "Electric" | "CNG";
@@ -77,7 +79,7 @@ export interface Vehicle {
 }
 
 export type BookingStatus = "Upcoming" | "Completed" | "Cancelled";
-export type PaymentStatus = "Pending" | "Submitted" | "Verified" | "Rejected";
+export type PaymentStatus = "Pending" | "Submitted" | "Verified" | "Rejected" | "Expired";
 
 export interface Booking {
   id: string;
@@ -97,6 +99,10 @@ export interface Booking {
   paymentStatus: PaymentStatus;
   utrNumber: string | null;
   createdAt: string;
+  /** Only ever populated when status is Completed and paymentStatus is Verified.
+   *  undefined = not eligible, null = eligible but not yet rated, present = already
+   *  rated this customer for this booking. */
+  customerRating?: { stars: number; comment: string | null } | null;
 }
 
 export const FEATURE_SUGGESTIONS: Record<Category, string[]> = {

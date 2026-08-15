@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { CalendarCheck } from "lucide-react";
+import { Star } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
+import RateCustomerDialog from "@/components/RateCustomerDialog";
 import { useToast } from "@/components/Toast";
 import { useBookings } from "@/lib/hooks";
-import type { BookingStatus } from "@/lib/types";
+import type { Booking, BookingStatus } from "@/lib/types";
 
 const TABS: { key: BookingStatus | "All"; label: string }[] = [
   { key: "Upcoming", label: "Upcoming" },
@@ -28,10 +30,11 @@ function formatDateTime(iso: string) {
 }
 
 export default function BookingsPage() {
-  const { bookings, loading, setStatus } = useBookings();
+  const { bookings, loading, setStatus, rateCustomer } = useBookings();
   const { showToast } = useToast();
   const [tab, setTab] = useState<BookingStatus | "All">("Upcoming");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [ratingBooking, setRatingBooking] = useState<Booking | null>(null);
 
   const filtered = useMemo(
     () => (tab === "All" ? bookings : bookings.filter((b) => b.status === tab)),
@@ -48,6 +51,24 @@ export default function BookingsPage() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function handleRateCustomer(stars: number, comment: string) {
+    if (!ratingBooking) return;
+    setBusyId(ratingBooking.id);
+    try {
+      await rateCustomer(ratingBooking.id, stars, comment);
+      showToast("Rating submitted", "success");
+      setRatingBooking(null);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to submit rating", "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function isRateable(b: Booking) {
+    return b.status === "Completed" && b.paymentStatus === "Verified";
   }
 
   return (
@@ -144,6 +165,19 @@ export default function BookingsPage() {
                           </button>
                         </div>
                       )}
+                      {isRateable(b) &&
+                        (b.customerRating ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-700 text-foreground">
+                            <Star size={13} className="fill-amber-400 text-amber-400" /> Rated {b.customerRating.stars}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setRatingBooking(b)}
+                            className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-700 text-foreground hover:border-primary"
+                          >
+                            Rate customer
+                          </button>
+                        ))}
                     </td>
                   </tr>
                 ))}
@@ -212,11 +246,36 @@ export default function BookingsPage() {
                     </button>
                   </div>
                 )}
+                {isRateable(b) &&
+                  (b.customerRating ? (
+                    <p className="mt-3 inline-flex items-center gap-1 text-xs font-700 text-foreground">
+                      <Star size={13} className="fill-amber-400 text-amber-400" /> Rated {b.customerRating.stars}
+                    </p>
+                  ) : (
+                    <button
+                      onClick={() => setRatingBooking(b)}
+                      className="mt-3 w-full rounded-lg border border-border py-2.5 text-xs font-700 text-foreground active:scale-[0.98]"
+                    >
+                      Rate customer
+                    </button>
+                  ))}
               </div>
             ))}
           </div>
         </div>
       )}
+
+      <RateCustomerDialog
+        // Remounts fresh for each booking (rather than reusing one persistent instance)
+        // so a star selection or draft comment from rating one customer can never leak
+        // into the dialog the next time it's opened for a different booking.
+        key={ratingBooking?.id ?? "closed"}
+        open={ratingBooking !== null}
+        customerName={ratingBooking?.customerName ?? ""}
+        busy={busyId === ratingBooking?.id}
+        onSubmit={handleRateCustomer}
+        onCancel={() => setRatingBooking(null)}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
+import { CategoryPhotoPlaceholder } from "@/components/CategoryIcon";
 import { useVehicles } from "@/lib/hooks";
 import type { Category } from "@/lib/types";
 
@@ -74,7 +75,11 @@ export default function VehiclesModerationPage() {
               <div key={v.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
                 <div className="flex items-center gap-3">
                   <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                    {v.photoUrl && <Image src={v.photoUrl} alt={v.name} fill className="object-cover" />}
+                    {v.photoUrl ? (
+                      <Image src={v.photoUrl} alt={v.name} fill className="object-cover" />
+                    ) : (
+                      <CategoryPhotoPlaceholder category={v.category} size={22} />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-700 text-foreground">{v.brand} {v.name}</p>
@@ -124,7 +129,11 @@ export default function VehiclesModerationPage() {
                       <td className="max-w-[220px] px-5 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className="relative h-9 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                            {v.photoUrl && <Image src={v.photoUrl} alt={v.name} fill className="object-cover" />}
+                            {v.photoUrl ? (
+                              <Image src={v.photoUrl} alt={v.name} fill className="object-cover" />
+                            ) : (
+                              <CategoryPhotoPlaceholder category={v.category} size={18} />
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="truncate font-600 text-foreground">{v.brand} {v.name}</p>

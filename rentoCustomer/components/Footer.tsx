@@ -94,20 +94,28 @@ export default function Footer() {
           <div>
             <p className={sectionTitleClass}>Company</p>
             <ul className={linkListClass}>
-              <li><Link href="/about" className={linkClass}>About Us</Link></li>
-              <li><Link href="/careers" className={linkClass}>Careers</Link></li>
-              <li><Link href="/blog" className={linkClass}>Blog</Link></li>
-              <li><Link href="/press" className={linkClass}>Press</Link></li>
+              {/* prefetch={false}: these are low-traffic informational pages that render
+                  in the footer of every page on the site. Next.js's default Link
+                  prefetching loads a route's code + data as soon as it scrolls into
+                  view — with 8 such links in one footer, that meant every page load
+                  quietly triggered up to 8 background route loads (each its own
+                  on-demand dev compile, each its own DB round trip) competing with the
+                  actual booking flow for the same connection pool. None of these pages
+                  are on a critical path worth prefetching. */}
+              <li><Link href="/about" prefetch={false} className={linkClass}>About Us</Link></li>
+              <li><Link href="/careers" prefetch={false} className={linkClass}>Careers</Link></li>
+              <li><Link href="/blog" prefetch={false} className={linkClass}>Blog</Link></li>
+              <li><Link href="/press" prefetch={false} className={linkClass}>Press</Link></li>
             </ul>
           </div>
 
           <div>
             <p className={sectionTitleClass}>Support</p>
             <ul className={linkListClass}>
-              <li><Link href="/help" className={linkClass}>Help Center</Link></li>
-              <li><Link href="/cancellation-policy" className={linkClass}>Cancellation Policy</Link></li>
-              <li><Link href="/contact" className={linkClass}>Contact Us</Link></li>
-              <li><Link href="/terms" className={linkClass}>Terms &amp; Privacy</Link></li>
+              <li><Link href="/help" prefetch={false} className={linkClass}>Help Center</Link></li>
+              <li><Link href="/cancellation-policy" prefetch={false} className={linkClass}>Cancellation Policy</Link></li>
+              <li><Link href="/contact" prefetch={false} className={linkClass}>Contact Us</Link></li>
+              <li><Link href="/terms" prefetch={false} className={linkClass}>Terms &amp; Privacy</Link></li>
             </ul>
           </div>
         </div>
