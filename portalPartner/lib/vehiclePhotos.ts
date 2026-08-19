@@ -7,11 +7,6 @@ import { isCloudinaryConfigured, uploadImageBuffer } from "./cloudinary";
 
 export const MAX_VEHICLE_PHOTOS = 6;
 
-// A source photo below this is unlikely to look sharp once displayed at the size the
-// vehicle detail page's hero image uses — reject it up front rather than silently
-// storing something that will look blurry however it's later resized.
-export const MIN_PHOTO_WIDTH = 640;
-export const MIN_PHOTO_HEIGHT = 480;
 
 /** Shared by /api/upload and /api/upload/from-url: normalizes any source image (upload
  *  or a fetched external URL) into the same consistent asset — rotated, cropped to a

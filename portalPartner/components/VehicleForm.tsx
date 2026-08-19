@@ -577,8 +577,13 @@ export default function VehicleForm({ mode, vehicle }: { mode: "create" | "edit"
               )}
 
               {p.status === "error" && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/70 px-2 text-center">
-                  <p className="text-[10px] font-600 text-white">{p.error ?? "Upload failed"}</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/75 px-3 text-center">
+                  <p className="text-[11px] font-600 leading-tight text-white">{p.error ?? "Upload failed"}</p>
+                  {p.sourceUrl && (
+                    <p className="text-[10px] text-white/70">
+                      Switch to <strong className="text-white">Upload Photo</strong> to use a file from your device.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => retryUpload(p)}
@@ -661,8 +666,8 @@ export default function VehicleForm({ mode, vehicle }: { mode: "create" | "edit"
               </button>
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Paste a direct link to an image on the web (JPG, PNG or WEBP), at least 640×480px.
-              We&apos;ll fetch and optimize it automatically — small or low-quality images will be rejected.
+              Paste a direct link to a JPG, PNG or WEBP image. We&apos;ll fetch and
+              optimize it automatically — any size is accepted.
             </p>
           </div>
         )}

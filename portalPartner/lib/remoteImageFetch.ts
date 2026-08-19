@@ -2,7 +2,8 @@ import dns from "node:dns/promises";
 import net from "node:net";
 
 const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024; // 15MB safety cap before we even try to resize it
-const FETCH_TIMEOUT_MS = 10000;
+const FETCH_TIMEOUT_MS = 30_000; // 30s — enough for slow external hosts / slow connections
+
 
 function isDisallowedIp(ip: string): boolean {
   if (net.isIPv4(ip)) {
@@ -66,11 +67,18 @@ export async function fetchRemoteImageBuffer(rawUrl: string): Promise<RemoteImag
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(parsed.toString(), { redirect: "manual", signal: controller.signal });
+    const res = await fetch(parsed.toString(), {
+      redirect: "follow", // many image CDNs redirect before serving — follow them
+      signal: controller.signal,
+      headers: {
+        // Some hosts block or stall requests with no User-Agent (bot detection).
+        // A realistic browser string avoids silent timeouts from those servers.
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "image/webp,image/avif,image/apng,image/*,*/*;q=0.8",
+      },
+    });
 
-    if (res.status >= 300 && res.status < 400) {
-      return { ok: false, error: "That link redirects elsewhere — please paste a direct image URL." };
-    }
     if (!res.ok) {
       return { ok: false, error: `Couldn't fetch that image (server responded ${res.status}).` };
     }
