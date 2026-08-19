@@ -105,6 +105,7 @@ export default function HomePage() {
     getVehicleCountForCity,
     getTotalVehicleCount,
     platformRating,
+    partnerVehiclesLoading,
   } = useApp();
 
   function handleFindVehicles() {
@@ -208,7 +209,13 @@ export default function HomePage() {
                   <div className="city-card-overlay absolute inset-0" />
                   {live ? (
                     <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-700 text-foreground">
-                      {getVehicleCountForCity(city)} vehicles
+                      {partnerVehiclesLoading ? (
+                        // Pulse skeleton so the badge doesn't flash "0 vehicles" while
+                        // the API call is in-flight (Neon cold-start can take 1–3s).
+                        <span className="inline-block h-3 w-12 animate-pulse rounded bg-gray-300" />
+                      ) : (
+                        <>{getVehicleCountForCity(city)} vehicles</>
+                      )}
                     </span>
                   ) : (
                     <span className="absolute right-3 top-3 rounded-full bg-primary px-2.5 py-1 text-[11px] font-700 text-white">
