@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { AlertTriangle, Check, CheckCircle2, Clock, Copy, Phone, Smartphone, Upload } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Clock, Copy, Phone, Smartphone, Upload, X } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { buildUpiLink, UPI_ID } from "@/lib/upi";
 import { formatShopPhone } from "@/lib/phone";
@@ -68,6 +68,7 @@ export default function PaymentPanel({
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [utr, setUtr] = useState(booking.utrNumber ?? "");
   const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -288,12 +289,33 @@ export default function PaymentPanel({
           <label className="flex items-center gap-1.5 text-xs font-600 text-muted-foreground">
             <Upload size={13} /> Payment screenshot (optional, recommended)
           </label>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="mt-1 w-full text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-600"
-          />
+          {file ? (
+            // Show the selected filename with a remove button — browser file inputs
+            // can't be cleared via React state alone; we must also reset .value on the
+            // DOM element so the same file can be re-selected after removal.
+            <div className="mt-1 flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2">
+              <span className="flex-1 truncate text-xs text-foreground">{file.name}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="flex shrink-0 items-center gap-1 text-[11px] font-600 text-muted-foreground hover:text-red-500"
+                aria-label="Remove screenshot"
+              >
+                <X size={13} /> Remove
+              </button>
+            </div>
+          ) : (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="mt-1 w-full text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-600"
+            />
+          )}
         </div>
         {error && <p className="text-xs font-600 text-red-500">{error}</p>}
         <button type="submit" disabled={submitting} className="btn-primary w-full py-2.5 text-sm">
