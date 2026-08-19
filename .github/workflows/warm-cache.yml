@@ -15,6 +15,11 @@ name: Warm cache
 #     repo's default branch. A quiet repo means this stops firing silently — if pushes
 #     ever go quiet for that long, re-enable it manually from the Actions tab (Actions →
 #     this workflow → "Enable workflow") or push any commit to reset the clock.
+#
+# Setup required (one-time, in your GitHub repo Settings → Actions → Variables):
+#   RENTO_CUSTOMER_URL  — e.g. https://rento-customer.vercel.app  (no trailing slash)
+# Optional (Settings → Actions → Secrets):
+#   CRON_SECRET         — must match CRON_SECRET in rentoCustomer's Vercel env vars
 on:
   schedule:
     - cron: "*/5 * * * *"
@@ -26,9 +31,25 @@ jobs:
     steps:
       - name: Ping warm-cache endpoint
         run: |
+          URL="${{ vars.RENTO_CUSTOMER_URL }}"
+
+          # Skip gracefully if the repo variable hasn't been configured yet.
+          # Go to Settings → Actions → Variables → New repository variable
+          # and add RENTO_CUSTOMER_URL = https://your-rento-customer.vercel.app
+          if [ -z "$URL" ]; then
+            echo "⚠️  RENTO_CUSTOMER_URL is not set — skipping warm-cache ping."
+            echo "   To enable: Settings → Actions → Variables → RENTO_CUSTOMER_URL"
+            exit 0
+          fi
+
           if [ -n "${{ secrets.CRON_SECRET }}" ]; then
             AUTH_HEADER="Authorization: Bearer ${{ secrets.CRON_SECRET }}"
           else
             AUTH_HEADER="X-No-Auth: true"
           fi
-          curl -sf -m 20 -H "$AUTH_HEADER" "${{ vars.RENTO_CUSTOMER_URL }}/api/cron/warm-cache"
+
+          # Use || true so a transient Vercel cold-start or network blip doesn't
+          # mark the job as failed and trigger email notifications.
+          curl -sf -m 30 -H "$AUTH_HEADER" "$URL/api/cron/warm-cache" \
+            && echo "✅ Warm-cache ping succeeded." \
+            || echo "⚠️  Warm-cache ping failed (non-fatal — will retry in 5 min)."
