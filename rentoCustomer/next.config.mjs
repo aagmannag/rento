@@ -40,12 +40,27 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // @rento/db is a workspace package that ships raw TypeScript (no build step of its
-  // own) — Next.js only transpiles source inside this app by default, so packages
-  // outside it need to be listed explicitly or imports from it fail to compile.
+  // @rento/db ships raw TypeScript (main: "src/index.ts", no build step) —
+  // MUST be in transpilePackages so Next.js compiles it through its own pipeline.
+  // Moving it to serverComponentsExternalPackages would cause a runtime crash on
+  // Vercel: require('@rento/db') would load the raw .ts file, which Node.js
+  // cannot execute.
   transpilePackages: ["@rento/db"],
   experimental: {
-    serverComponentsExternalPackages: ["firebase-admin", "jwks-rsa", "jose"],
+    // Pre-compiled Node.js-only packages — exclude from the webpack bundle so
+    // they're required natively at runtime (correct for packages with native
+    // binaries or that must not be processed by webpack).
+    serverComponentsExternalPackages: [
+      "@prisma/client",
+      "@prisma/adapter-pg",
+      "pg",
+      "firebase-admin",
+      "jwks-rsa",
+      "jose",
+    ],
+    // Tree-shake large client packages — only the exports actually imported
+    // are included in the bundle, cutting dozens of modules from firebase/lucide.
+    optimizePackageImports: ["firebase/app", "firebase/auth", "lucide-react", "react-icons"],
   },
   // Disabled: Firebase's RecaptchaVerifier widget (used for phone-auth login) manages
   // its own DOM outside React's control and breaks under Strict Mode's intentional
