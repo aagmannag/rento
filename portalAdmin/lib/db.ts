@@ -3,10 +3,12 @@ import type {
   AdminUser,
   Category,
   OwnerApprovalStatus,
+  PartnerFleetSummary,
   PlatformStats,
   ShopOwner,
   ShopOwnerDetail,
   Vehicle,
+  VehicleAvailability,
   VehicleStatus,
 } from "./types";
 
@@ -337,7 +339,114 @@ export async function setVehicleStatus(id: string, status: VehicleStatus): Promi
     // dashboard cache a few seconds sooner) — the global active-listing key and this one
     // vehicle's availability entry are the ones that actually need to be fresh.
     invalidateVehicleListingCaches(undefined, id);
-    void invalidateCache([ADMIN_ALL_VEHICLES_CACHE_KEY, ADMIN_STATS_CACHE_KEY]);
+    void invalidateCache([ADMIN_ALL_VEHICLES_CACHE_KEY, ADMIN_STATS_CACHE_KEY, ADMIN_FLEET_CACHE_KEY]);
   }
   return updated;
+}
+
+// ---------- Fleet availability ----------
+
+const ADMIN_FLEET_CACHE_KEY = "cache:v1:admin:fleet";
+
+/**
+ * Returns every partner's vehicle fleet with live availability data.
+ *
+ * "booked" mirrors the EXACT WHERE clause of @rento/db's bookedQuantity() helper:
+ *   status IN ('Upcoming', 'Active')  AND  paymentStatus NOT IN ('Expired', 'Rejected')
+ * Completed bookings are excluded (vehicle already returned); Cancelled/Expired/Rejected
+ * bookings are excluded (stock was never actually reserved for them).
+ *
+ * Uses the same getCached() / short TTL pattern as every other admin read — this
+ * endpoint is polled every 8s by the fleet page.
+ */
+export async function getFleetAvailability(): Promise<PartnerFleetSummary[]> {
+  return getCached(ADMIN_FLEET_CACHE_KEY, ADMIN_CACHE_TTL_SECONDS, async () => {
+    // One round trip: fetch all vehicles with their owner and active booking counts.
+    // Prisma doesn't support a filtered _count on a relation directly, so we
+    // pull the raw bookings counts with a groupBy, then join in memory.
+    const [vehicles, bookingCounts] = await Promise.all([
+      prisma.vehicle.findMany({
+        orderBy: [{ ownerId: "asc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          ownerId: true,
+          brand: true,
+          name: true,
+          category: true,
+          city: true,
+          status: true,
+          photoUrl: true,
+          pricePerDay: true,
+          stock: true,
+          owner: {
+            select: { ownerName: true, shopName: true, status: true, city: true },
+          },
+        },
+      }),
+      // Count active (non-expired, non-rejected, non-cancelled, non-completed) bookings
+      // per vehicle — same criteria as bookedQuantity() in @rento/db/vehicles.ts so the
+      // admin sees the same availability number a customer would see.
+      prisma.booking.groupBy({
+        by: ["vehicleId"],
+        where: {
+          status: { in: ["Upcoming", "Active"] },
+          paymentStatus: { notIn: ["Expired", "Rejected"] },
+        },
+        _sum: { quantity: true },
+      }),
+    ]);
+
+    // Build a vehicleId -> bookedQty lookup map (O(1) per vehicle below).
+    const bookedMap = new Map<string, number>();
+    for (const row of bookingCounts) {
+      bookedMap.set(row.vehicleId, row._sum.quantity ?? 0);
+    }
+
+    // Group vehicles by owner.
+    const ownerMap = new Map<string, PartnerFleetSummary>();
+    for (const v of vehicles) {
+      const booked = bookedMap.get(v.id) ?? 0;
+      const available = Math.max(0, v.stock - booked);
+
+      const vehicleEntry: VehicleAvailability = {
+        vehicleId: v.id,
+        vehicleName: `${v.brand} ${v.name}`,
+        category: v.category as Category,
+        city: v.city,
+        status: v.status as VehicleStatus,
+        photoUrl: resolvePhotoUrl(v.photoUrl),
+        pricePerDay: v.pricePerDay,
+        stock: v.stock,
+        booked,
+        available,
+      };
+
+      const existing = ownerMap.get(v.ownerId);
+      if (existing) {
+        existing.vehicles.push(vehicleEntry);
+        existing.totalStock += v.stock;
+        existing.totalBooked += booked;
+        existing.totalAvailable += available;
+      } else {
+        ownerMap.set(v.ownerId, {
+          ownerId: v.ownerId,
+          ownerName: v.owner.ownerName,
+          shopName: v.owner.shopName,
+          ownerStatus: v.owner.status as OwnerApprovalStatus,
+          city: v.owner.city,
+          totalStock: v.stock,
+          totalBooked: booked,
+          totalAvailable: available,
+          vehicles: [vehicleEntry],
+        });
+      }
+    }
+
+    // Return sorted: Approved first, then by shopName.
+    return [...ownerMap.values()].sort((a, b) => {
+      if (a.ownerStatus === "Approved" && b.ownerStatus !== "Approved") return -1;
+      if (a.ownerStatus !== "Approved" && b.ownerStatus === "Approved") return 1;
+      return a.shopName.localeCompare(b.shopName);
+    });
+  });
 }

@@ -70,6 +70,35 @@ export interface PlatformStats {
   totalBookings: number;
 }
 
+/** Per-vehicle breakdown returned by GET /api/fleet */
+export interface VehicleAvailability {
+  vehicleId: string;
+  vehicleName: string;
+  category: Category;
+  city: string;
+  status: VehicleStatus;
+  photoUrl: string | null;
+  pricePerDay: number;
+  stock: number;
+  /** Active (Upcoming/Active) bookings with a valid payment status — mirrors bookedQuantity(). */
+  booked: number;
+  /** max(0, stock - booked) */
+  available: number;
+}
+
+/** Per-partner rollup returned by GET /api/fleet */
+export interface PartnerFleetSummary {
+  ownerId: string;
+  ownerName: string;
+  shopName: string;
+  ownerStatus: OwnerApprovalStatus;
+  city: string;
+  totalStock: number;
+  totalBooked: number;
+  totalAvailable: number;
+  vehicles: VehicleAvailability[];
+}
+
 export interface PendingPayment {
   id: string;
   customerName: string;

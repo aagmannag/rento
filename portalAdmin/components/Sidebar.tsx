@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Store, Car, Banknote, Settings, LogOut, X } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Store, Car, Banknote, Settings, LogOut, X } from "lucide-react";
 import { useAdmin } from "@/app/providers";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/shop-owners", label: "Shop Owners", icon: Store, exact: false },
   { href: "/vehicles", label: "Vehicles", icon: Car, exact: false },
+  { href: "/fleet", label: "Fleet & Availability", icon: LayoutGrid, exact: false },
   { href: "/payments", label: "Payments", icon: Banknote, exact: false },
   { href: "/settings", label: "Settings", icon: Settings, exact: false },
 ];

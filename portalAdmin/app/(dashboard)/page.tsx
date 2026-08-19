@@ -17,7 +17,7 @@ import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
 import { useAdmin } from "@/app/providers";
-import { useStats, useShopOwners, usePayments } from "@/lib/hooks";
+import { useStats, useShopOwners, usePayments, useFleet } from "@/lib/hooks";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -33,10 +33,17 @@ export default function DashboardPage() {
   const { stats, loading: statsLoading } = useStats();
   const { owners: pendingOwners, loading: pendingLoading } = useShopOwners("Pending");
   const { payments, loading: paymentsLoading } = usePayments();
+  const { fleet, loading: fleetLoading } = useFleet();
 
   const loading = statsLoading;
   const recentPending = pendingOwners.slice(0, 5);
   const recentPayments = payments.slice(0, 5);
+
+  // Platform-wide available stock (excludes Suspended/Rejected owner vehicles since
+  // those are hidden from customers anyway, but still counts them so the admin can
+  // see the full picture of reserved units across all partners).
+  const totalAvailable = fleet.reduce((s, p) => s + p.totalAvailable, 0);
+  const totalFleetStock = fleet.reduce((s, p) => s + p.totalStock, 0);
 
   const needsAttention = (stats?.pendingOwners ?? 0) + payments.length;
 
@@ -84,10 +91,22 @@ export default function DashboardPage() {
       </div>
 
       <p className="mb-3 mt-8 text-xs font-700 uppercase tracking-wide text-muted-foreground">Marketplace</p>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Total Vehicles" value={loading ? "…" : String(stats?.totalVehicles ?? 0)} icon={Car} href="/vehicles" />
         <StatCard label="Active Listings" value={loading ? "…" : String(stats?.activeVehicles ?? 0)} icon={Car} href="/vehicles" />
         <StatCard label="Total Bookings" value={loading ? "…" : String(stats?.totalBookings ?? 0)} icon={Banknote} />
+        <StatCard
+          label="Available Now"
+          value={fleetLoading ? "…" : String(totalAvailable)}
+          icon={CheckCircle2}
+          tone={!fleetLoading && totalAvailable === 0 && totalFleetStock > 0 ? "danger" : "default"}
+          hint={
+            !fleetLoading && totalFleetStock > 0
+              ? `${Math.round((totalAvailable / totalFleetStock) * 100)}% of fleet free`
+              : undefined
+          }
+          href="/fleet"
+        />
         <StatCard
           label="Payments Awaiting Verification"
           value={paymentsLoading ? "…" : String(payments.length)}

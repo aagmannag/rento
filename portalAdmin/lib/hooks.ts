@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { OwnerApprovalStatus, PendingPayment, PlatformStats, ShopOwner, Vehicle, VehicleStatus } from "./types";
+import type { OwnerApprovalStatus, PartnerFleetSummary, PendingPayment, PlatformStats, ShopOwner, Vehicle, VehicleStatus } from "./types";
 import { usePolling } from "./usePolling";
 
 // How often each list re-syncs with the server while its page is open and visible —
@@ -166,4 +166,36 @@ export function usePayments() {
   }, []);
 
   return { payments, loading, refresh, verify, reject };
+}
+
+export function useFleet() {
+  const [fleet, setFleet] = useState<PartnerFleetSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  // Same request-sequence guard as useVehicles/usePayments — a background poll
+  // landing just after a manual refresh must not overwrite the fresher result.
+  const requestSeqRef = useRef(0);
+
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    const seq = ++requestSeqRef.current;
+    if (!options?.silent) setLoading(true);
+    try {
+      const res = await fetch("/api/fleet");
+      if (!res.ok) throw new Error(`Failed to load fleet data (${res.status})`);
+      const data: { fleet: PartnerFleetSummary[] } = await res.json();
+      if (seq === requestSeqRef.current) setFleet(data.fleet ?? []);
+    } catch (err) {
+      // Keep last-known list rather than crashing on a transient network blip.
+      console.error("Failed to load fleet availability:", err);
+    } finally {
+      if (!options?.silent) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  usePolling(useCallback(() => refresh({ silent: true }), [refresh]), POLL_INTERVAL_MS);
+
+  return { fleet, loading, refresh };
 }
